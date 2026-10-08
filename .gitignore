@@ -1,0 +1,18 @@
+# OS / editor temporary files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+
+# Secrets / local environment
+.env
+.env.*
+!.env.example
+
+# Generic build output; add engine-specific rules after stack selection
+/build/
+/dist/
+/coverage/
+/logs/
+/tmp/
