@@ -30,3 +30,5 @@ target_link_libraries(your_target PRIVATE designer::core)
 以子项目方式使用时，示例与测试默认关闭；C++17 要求及公开头文件路径通过目标传递。警告只作用于本工程自己的目标，不强迫下游采用相同警告设置。
 
 目前只提供源码构建和 `add_subdirectory` 集成，不提供 `find_package` 安装包。已验证的平台会记录在变更交付中，未验证平台不宣称可用。
+
+背包示例：`./build/examples/designer_inventory_example`。独立链接目标为 `designer::inventory`，不需要链接 core。

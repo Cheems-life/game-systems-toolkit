@@ -15,6 +15,7 @@ option(DESIGNER_BUILD_TESTS "Build toolkit tests" ${DESIGNER_STANDALONE})
 
 include(cmake/DesignerWarnings.cmake)
 add_subdirectory(modules/foundation/core)
+add_subdirectory(modules/gameplay/inventory)
 
 if(DESIGNER_BUILD_EXAMPLES)
     add_subdirectory(examples)

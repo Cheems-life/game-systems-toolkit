@@ -2,3 +2,8 @@ add_executable(designer_quickstart quickstart/main.cpp)
 target_link_libraries(designer_quickstart PRIVATE designer::core)
 set_target_properties(designer_quickstart PROPERTIES CXX_EXTENSIONS OFF)
 designer_enable_warnings(designer_quickstart)
+
+add_executable(designer_inventory_example inventory/main.cpp)
+target_link_libraries(designer_inventory_example PRIVATE designer::inventory)
+set_target_properties(designer_inventory_example PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_inventory_example)
