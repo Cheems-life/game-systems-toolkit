@@ -1,0 +1,4 @@
+add_executable(designer_quickstart quickstart/main.cpp)
+target_link_libraries(designer_quickstart PRIVATE designer::core)
+set_target_properties(designer_quickstart PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_quickstart)

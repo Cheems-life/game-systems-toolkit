@@ -1,0 +1,25 @@
+cmake_minimum_required(VERSION 3.20)
+project(DesignerToolkit VERSION 0.1.0 LANGUAGES CXX)
+
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_BINARY_DIR)
+    message(FATAL_ERROR "Use an out-of-source build: cmake -S . -B build")
+endif()
+
+# Keep embedding projects free of our examples and tests by default.
+set(DESIGNER_STANDALONE OFF)
+if(CMAKE_SOURCE_DIR STREQUAL PROJECT_SOURCE_DIR)
+    set(DESIGNER_STANDALONE ON)
+endif()
+option(DESIGNER_BUILD_EXAMPLES "Build command-line examples" ${DESIGNER_STANDALONE})
+option(DESIGNER_BUILD_TESTS "Build toolkit tests" ${DESIGNER_STANDALONE})
+
+include(cmake/DesignerWarnings.cmake)
+add_subdirectory(modules/foundation/core)
+
+if(DESIGNER_BUILD_EXAMPLES)
+    add_subdirectory(examples)
+endif()
+if(DESIGNER_BUILD_TESTS)
+    enable_testing()
+    add_subdirectory(tests)
+endif()

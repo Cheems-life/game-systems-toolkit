@@ -16,3 +16,8 @@ Thumbs.db
 /coverage/
 /logs/
 /tmp/
+
+# Godot generated cache (when an adapter project is added)
+.godot/
+# Developer-local CMake settings
+CMakeUserPresets.json
