@@ -44,3 +44,12 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 编译数据库让 Microsoft C/C++ 扩展使用真实的编译器参数与头文件路径；未匹配到编译单元时使用 C++17 默认值。此方式适用于 Makefiles/Ninja 生成器。若使用其他构建目录，需同步修改设置中的路径。安装 CMake Tools 时，仓库设置也会启用编译数据库导出。
 
 若 `std::optional` 仍有红线，通过命令面板执行 `C/C++: Reset IntelliSense Database` 后重新打开文件。必要时执行 `C/C++: Log Diagnostics` 查看实际标准、编译器和配置来源；个人配置或其他配置提供者可能覆盖默认设置。编辑器诊断与真实编译是两个独立过程。
+
+宝箱/仓库/存档示例（替换指定示例文件，然后在下一进程只加载）：
+
+```sh
+./build/examples/designer_inventory_storage_demo build/example-player.sav
+./build/examples/designer_inventory_storage_demo build/example-player.sav --load
+```
+
+链接存档组合示例时使用 `designer::inventory` 与 `designer::persistence`。当前原子保存仅提供 POSIX 适配，并在 macOS 验证；Windows 保存返回 `unsupported_platform`，对应跨进程保存示例测试仅在 POSIX 注册。

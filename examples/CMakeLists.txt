@@ -7,3 +7,8 @@ add_executable(designer_inventory_example inventory/main.cpp)
 target_link_libraries(designer_inventory_example PRIVATE designer::inventory)
 set_target_properties(designer_inventory_example PROPERTIES CXX_EXTENSIONS OFF)
 designer_enable_warnings(designer_inventory_example)
+
+add_executable(designer_inventory_storage_demo inventory/storage_demo.cpp)
+target_link_libraries(designer_inventory_storage_demo PRIVATE designer::inventory designer::persistence)
+set_target_properties(designer_inventory_storage_demo PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_inventory_storage_demo)
