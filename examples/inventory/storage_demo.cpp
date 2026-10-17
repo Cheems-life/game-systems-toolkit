@@ -1,6 +1,9 @@
 #include <designer/inventory/archive.hpp>
-#include <designer/persistence/file_store.hpp>
+#include <designer/persistence/file_store.hpp>          // 这里的持久话设计是为了做背包存档，把背包、仓库等容器等数据保存下来，让程序退出后还能够恢复
 #include <iostream>
+
+// 保存：背包 -> 快照 -> 编码 -> 写入存档文件
+// 读取：解码 -> 校验物品规则 -> 恢复背包
 
 namespace inv = designer::inventory;
 namespace store = designer::persistence;

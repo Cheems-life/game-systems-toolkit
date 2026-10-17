@@ -136,10 +136,13 @@ Error Inventory::swap_slots(std::size_t first, std::size_t second) {
 }
 
 Error Inventory::transfer_to(Inventory& target, ItemId item, Quantity quantity) {
-    if (this == &target) return Error::same_container;
+    if (this == &target) return Error::same_container;      // 来源与目标同一对象
     // Work on independent candidates: exceptions and failures preserve both originals.
+
+    // 在副本上先操作，成功后再提交
     auto source_candidate = *this;
     auto target_candidate = target;
+
     const auto removed = source_candidate.remove(item, quantity);
     if (removed != Error::none) return removed;
     const auto added = target_candidate.add(item, quantity);
