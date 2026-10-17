@@ -48,3 +48,7 @@ Shop 以 unique_ptr<State> 拥有独立 Economy 和购买回执 map，另持有�
 ## 决策演进
 
 新增商城协调边界，补充而非替代经济步骤 002、003 的独立交易规则。经济候选能力见步骤 005。
+
+## 2026-10-17 维护补充
+
+提交主题 `docs: preserve economy and shop learning annotations`：保存经济恢复流程及商城模型/流程的中文学习注释和排版整理。对三处源码忽略注释与空白后比较词法记号，结果与原提交一致；没有改变接口、数据格式或业务规则。执行 `cmake --build build --parallel` 与完整 CTest，17/17 通过。本次未重复运行内存检查。

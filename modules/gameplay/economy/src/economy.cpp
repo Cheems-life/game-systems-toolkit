@@ -263,20 +263,24 @@ namespace designer::economy
                   { return a.sequence < b.sequence; });
         return result;
     }
+
     Error Economy::restore(const Snapshot &snapshot)
     {
-        if (snapshot.receipts.size() > history_limit_)
+        if (snapshot.receipts.size() > history_limit_)      // 防止快照里的交易记录超过当前允许的上限
             return Error::invalid_snapshot;
-        auto candidate = std::make_unique<State>(*state_);
-        const auto wallet_result = candidate->wallet.restore(snapshot.balances);
+
+        auto candidate = std::make_unique<State>(*state_);  // 复制当前状态
+
+        const auto wallet_result = candidate->wallet.restore(snapshot.balances);            // 恢复金钱
         if (wallet_result != Error::none)
             return wallet_result;
         std::vector<inventory::ContainerBinding> bindings;
         for (auto &entry : candidate->containers)
             bindings.push_back({entry.first, &entry.second});
-        if (inventory::restore_archive(snapshot.containers, bindings).error != inventory::ArchiveError::none)
+        if (inventory::restore_archive(snapshot.containers, bindings).error != inventory::ArchiveError::none)   // 恢复背包
             return Error::invalid_snapshot;
-        candidate->history.clear();
+        candidate->history.clear();             // 恢复应该使用快照里的历史替换现有历史
+
         for (std::size_t i = 0; i < snapshot.receipts.size(); ++i)
         {
             const auto &receipt = snapshot.receipts[i];
@@ -284,11 +288,13 @@ namespace designer::economy
                 receipt.transaction.reward.currencies.size() > max_entries_per_list ||
                 receipt.transaction.reward.items.size() > max_entries_per_list)
                 return Error::invalid_snapshot;
-            auto canonical = receipt.transaction;
+
+            auto canonical = receipt.transaction;       // 复制交易内容并规范化
             if (normalize(canonical) != Error::none || !(canonical == receipt.transaction) || receipt.sequence != i + 1 ||
                 candidate->containers.find(canonical.destination) == candidate->containers.end() ||
                 candidate->history.find(canonical.request_id) != candidate->history.end())
                 return Error::invalid_snapshot;
+
             for (const auto &list : {&canonical.cost.currencies, &canonical.reward.currencies})
             {
                 for (const auto &entry : *list)
