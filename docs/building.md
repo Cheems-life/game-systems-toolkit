@@ -62,3 +62,12 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
 链接经济领域库用 `designer::economy`（传递链接 inventory）；需要本地文件时再加 `designer::persistence`。新经济格式与原容器格式使用不同魔数，不自动迁移。示例验证购买失败不扣款及重启后的请求去重。
+
+商城示例（首条替换指定示例存档，第二条用空商品目录恢复并重放）：
+
+```sh
+./build/examples/designer_commerce_example build/example-commerce.sav
+./build/examples/designer_commerce_example build/example-commerce.sav --load
+```
+
+链接领域库使用 `designer::commerce`（传递依赖 economy/inventory）；文件读写再加 `designer::persistence`。商城保存使用独立 DSHPARCH 格式，不自动覆盖或迁移旧经济文件。

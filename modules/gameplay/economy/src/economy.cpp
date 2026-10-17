@@ -187,6 +187,12 @@ namespace designer::economy
             total_slots += slots;
         }
     }
+    std::unique_ptr<Economy> Economy::clone() const
+    {
+        auto candidate = std::make_unique<Economy>(state_->wallet, std::vector<Container>{}, history_limit_);
+        candidate->state_ = std::make_unique<State>(*state_);
+        return candidate;
+    }
     const Wallet &Economy::wallet() const noexcept { return state_->wallet; }
     const inventory::Inventory *Economy::container(ContainerId id) const noexcept
     {

@@ -17,3 +17,8 @@ add_executable(designer_economy_example economy/main.cpp)
 target_link_libraries(designer_economy_example PRIVATE designer::economy designer::persistence)
 set_target_properties(designer_economy_example PROPERTIES CXX_EXTENSIONS OFF)
 designer_enable_warnings(designer_economy_example)
+
+add_executable(designer_commerce_example commerce/main.cpp)
+target_link_libraries(designer_commerce_example PRIVATE designer::commerce designer::persistence)
+set_target_properties(designer_commerce_example PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_commerce_example)

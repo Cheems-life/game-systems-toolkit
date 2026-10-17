@@ -148,6 +148,8 @@ namespace designer::economy
         Economy(Wallet wallet, std::vector<Container> containers, std::size_t history_limit = 256);
         Economy(const Economy &) = delete;
         Economy &operator=(const Economy &) = delete;
+        // Independent candidate for an owning coordinator; preserves history limits.
+        [[nodiscard]] std::unique_ptr<Economy> clone() const;
         [[nodiscard]] const Wallet &wallet() const noexcept;
         [[nodiscard]] const inventory::Inventory *container(ContainerId id) const noexcept;
         [[nodiscard]] std::size_t history_size() const noexcept;

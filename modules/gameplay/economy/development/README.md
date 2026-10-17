@@ -10,3 +10,5 @@
 - [002：统一交易与异常安全提交](002-atomic-execution.md)
 - [003：规范化、请求去重与成功回执](003-idempotency-and-receipts.md)
 - [004：资产和去重历史统一持久化](004-economy-save-and-restore.md)
+
+- [005：供商城协调的独立经济候选副本](005-owned-candidate-clone.md)（本次增量实现，验证结果见步骤）。

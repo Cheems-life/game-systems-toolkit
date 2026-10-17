@@ -18,6 +18,7 @@ add_subdirectory(modules/foundation/core)
 add_subdirectory(modules/foundation/persistence)
 add_subdirectory(modules/gameplay/inventory)
 add_subdirectory(modules/gameplay/economy)
+add_subdirectory(modules/services/commerce)
 
 if(DESIGNER_BUILD_EXAMPLES)
     add_subdirectory(examples)

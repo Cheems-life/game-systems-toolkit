@@ -32,7 +32,7 @@
 | 任务与目标 | 待开发 | [记录](../modules/gameplay/quests/development/README.md) |
 | 账号与身份 | 待开发 | [记录](../modules/services/accounts/development/README.md) |
 | 数据分析 | 待开发 | [记录](../modules/services/analytics/development/README.md) |
-| 商店与支付 | 待开发 | [记录](../modules/services/commerce/development/README.md) |
+| 商店与支付 | 游戏内商城已实现，支付待开发 | [记录](../modules/services/commerce/development/README.md) |
 | 排行榜与成就 | 待开发 | [记录](../modules/services/leaderboards/development/README.md) |
 | 活动与运营配置 | 待开发 | [记录](../modules/services/liveops/development/README.md) |
 | 邮件与补偿 | 待开发 | [记录](../modules/services/mail/development/README.md) |
