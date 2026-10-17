@@ -53,3 +53,12 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
 链接存档组合示例时使用 `designer::inventory` 与 `designer::persistence`。当前原子保存仅提供 POSIX 适配，并在 macOS 验证；Windows 保存返回 `unsupported_platform`，对应跨进程保存示例测试仅在 POSIX 注册。
+
+经济示例：
+
+```sh
+./build/examples/designer_economy_example build/example-economy.sav
+./build/examples/designer_economy_example build/example-economy.sav --load
+```
+
+链接经济领域库用 `designer::economy`（传递链接 inventory）；需要本地文件时再加 `designer::persistence`。新经济格式与原容器格式使用不同魔数，不自动迁移。示例验证购买失败不扣款及重启后的请求去重。
