@@ -86,6 +86,28 @@ namespace designer::commerce
         std::vector<PurchaseReceipt> purchases; // Strictly increasing economic sequence, may have gaps.
     };
 
+    class PurchaseBook;
+    struct PreparedPurchase
+    {
+        PurchaseResult result;
+        std::unique_ptr<economy::Economy> economy;
+        std::unique_ptr<PurchaseBook> book;
+    };
+
+    // Owns purchase records only. Pure preparation never mutates the input economy or this book.
+    class PurchaseBook
+    {
+    public:
+        explicit PurchaseBook(std::size_t history_limit = 256);
+        [[nodiscard]] PreparedPurchase prepare(const ProductCatalog& catalog, const economy::Economy& economy,
+                                               const PurchaseRequest& request) const;
+        [[nodiscard]] std::vector<PurchaseReceipt> snapshot() const;
+        [[nodiscard]] Error restore(const Snapshot& snapshot);
+    private:
+        std::map<economy::RequestId, PurchaseReceipt> purchases_;
+        std::size_t history_limit_;
+    };
+
     // One player's shop coordinator. Owns the economy, single-threaded.
     // Asset views expire after successful purchase/restore. Catalog views expire after replacement.
     class Shop
@@ -111,7 +133,7 @@ namespace designer::commerce
         struct State
         {
             std::unique_ptr<economy::Economy> economy;
-            std::map<economy::RequestId, PurchaseReceipt> purchases;
+            PurchaseBook purchases;
         };
         ProductCatalog catalog_;
         std::unique_ptr<State> state_;

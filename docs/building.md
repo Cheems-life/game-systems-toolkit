@@ -71,3 +71,12 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ```
 
 链接领域库使用 `designer::commerce`（传递依赖 economy/inventory）；文件读写再加 `designer::persistence`。商城保存使用独立 DSHPARCH 格式，不自动覆盖或迁移旧经济文件。
+
+任务与共享玩家示例：
+
+```sh
+./build/examples/designer_quests_example build/example-quests.sav
+./build/examples/designer_quests_example build/example-quests.sav --load
+```
+
+只需任务核心时链接 `designer::quest_core`；需要商城/任务共享资产、领奖及完整存档时链接 `designer::quests`。文件存储另加 `designer::persistence`。测试按模块位于 `tests/quests/`，CTest 可用 `-R quests` 筛选；存取示例仅在已启用示例的 UNIX 平台注册。

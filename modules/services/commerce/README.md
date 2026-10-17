@@ -130,3 +130,9 @@ ctest --test-dir build --output-on-failure
 ## 开发过程与决策
 
 按步骤阅读 [开发记录](development/README.md)，包含方案比较、原因、失败路径和验证限制。经济候选接口的边界见 [经济步骤 005](../../gameplay/economy/development/005-owned-candidate-clone.md)。
+
+## 与任务共享玩家资产（2026-10-18）
+
+新增 `PurchaseBook`，只保存购买记录，不拥有资产。`prepare(catalog, const Economy&, request)` 不修改输入，成功时返回独立经济候选、购买记录候选和已准备回执；重放或失败没有可提交候选。独立 Shop 继续通过此准备入口提交，旧公开购买接口和 DSHPARCH 格式保持兼容。
+
+任务的 `quests::Player` 也复用 PurchaseBook，并统一持有同一个 Economy、购买记录和 QuestBook，不再通过两个独立 Shop/任务对象共享可写裸指针。PurchaseBook::restore 校验记录关联，经济当前规则由其所有者在同一候选中验证。接入细节见 [开发步骤 004](development/004-independent-purchase-preparation.md)。

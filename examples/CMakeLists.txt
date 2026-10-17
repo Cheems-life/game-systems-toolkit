@@ -22,3 +22,8 @@ add_executable(designer_commerce_example commerce/main.cpp)
 target_link_libraries(designer_commerce_example PRIVATE designer::commerce designer::persistence)
 set_target_properties(designer_commerce_example PROPERTIES CXX_EXTENSIONS OFF)
 designer_enable_warnings(designer_commerce_example)
+
+add_executable(designer_quests_example quests/main.cpp)
+target_link_libraries(designer_quests_example PRIVATE designer::quests designer::persistence)
+set_target_properties(designer_quests_example PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_quests_example)

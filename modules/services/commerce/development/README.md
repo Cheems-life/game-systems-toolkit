@@ -11,3 +11,5 @@
 - [003：商城、经济状态与购买记录统一存档](003-shop-save-and-restore.md)
 
 跨系统能力见 [经济步骤 005](../../../gameplay/economy/development/005-owned-candidate-clone.md)。
+
+- [004：可复用的商城购买准备](004-independent-purchase-preparation.md)：纯准备与记录分离，供任务玩家协调器共享资产，保留旧 Shop 入口。

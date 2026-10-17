@@ -11,6 +11,7 @@ tests/
 ├── persistence/   文件读写与安全替换
 ├── economy/       经济规则、存档、分配失败及经济辅助头文件
 ├── commerce/      商城规则、存档、分配失败及商城辅助头文件
+├── quests/        任务核心、共享玩家、格式、分配失败及任务辅助头文件
 ├── CMakeLists.txt 测试总入口
 └── README.md      文件用途索引
 ```
@@ -34,7 +35,7 @@ tests/
 | [commerce_allocation_tests.cpp](commerce/commerce_allocation_tests.cpp) | 商城异常安全测试：仅在本测试程序中重载内存分配，逐步注入 std::bad_alloc。 |
 | [economy_test_support.hpp](economy/economy_test_support.hpp) | 经济测试公共辅助：提供 CHECK 检查、示例经济对象、交易请求、物品统计和快照比较。 |
 | [commerce_test_support.hpp](commerce/commerce_test_support.hpp) | 商城测试公共辅助：复用经济测试工具，创建示例商品目录和商城，比较商城完整快照。 |
-| [CMakeLists.txt](CMakeLists.txt) | 加载五个模块测试子目录；子目录分别注册测试及保存/加载 fixture。 |
+| [CMakeLists.txt](CMakeLists.txt) | 加载各模块测试子目录；子目录分别注册测试及保存/加载 fixture。 |
 
 
 工程冒烟测试：验证公开头文件、库链接及运行入口能够一起工作。
@@ -47,3 +48,14 @@ tests/
 经济测试包含钱包与交易规则、规范化去重、恢复、编码和 bad_alloc 逐分配点注入。独立示例进程验证存档后的请求去重，注入分配器只存在于对应测试可执行文件中，不影响生产库。
 
 商城新增规则、格式、分配失败和跨进程测试，覆盖原经济 clone 的独立性与容量限制。商城和经济开发记录分别说明跨模块提交边界，不将本地内存事务当作服务端数据库事务。
+
+任务测试文件：
+
+| 文件 | 主要用途 |
+| --- | --- |
+| [quests/core_tests.cpp](quests/core_tests.cpp) | 不链接商城的等级、注册处理器、冻结目标及批量事件测试。 |
+| [quests/player_tests.cpp](quests/player_tests.cpp) | 购买与领奖共享资产、一次性任务状态、准备失败与恢复。 |
+| [quests/archive_tests.cpp](quests/archive_tests.cpp) | 独立固定格式样本、关联校验、截断损坏与 2000 次变异。 |
+| [quests/allocation_tests.cpp](quests/allocation_tests.cpp) | 对接取、事件、购买、领奖、恢复和编解码逐分配点注入 bad_alloc。 |
+| [quests/quest_test_support.hpp](quests/quest_test_support.hpp) | 示例任务/玩家构造、就绪设置和完整快照比较。 |
+| [quests/CMakeLists.txt](quests/CMakeLists.txt) | 分别链接纯任务核心与玩家协调库，并安排双进程恢复 fixture。 |

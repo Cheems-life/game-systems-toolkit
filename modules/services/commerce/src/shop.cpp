@@ -108,7 +108,7 @@ namespace designer::commerce
         return "unrecognized_error";
     }
     Shop::Shop(ProductCatalog catalog, std::unique_ptr<economy::Economy> economy, std::size_t history_limit)
-        : catalog_(std::move(catalog)), state_(std::make_unique<State>(State{std::move(economy), {}})), history_limit_(history_limit)
+        : catalog_(std::move(catalog)), state_(std::make_unique<State>(State{std::move(economy), PurchaseBook(history_limit)})), history_limit_(history_limit)
     {
         if (!state_->economy || history_limit == 0 || history_limit > max_history)
             throw std::invalid_argument("Invalid shop economy or history limit");
@@ -122,68 +122,78 @@ namespace designer::commerce
         catalog_.swap(catalog);
     }
 
-    PurchaseResult Shop::purchase(const PurchaseRequest &request)
+    PurchaseBook::PurchaseBook(std::size_t history_limit) : history_limit_(history_limit)
     {
-        if (!detail::valid_request(request))
-            return {Error::invalid_request};
-        const auto previous = state_->purchases.find(request.request_id);       // 判断是不是已经完成的购买
-        if (previous != state_->purchases.end())
-        {
-            if (!(previous->second.request == request))
-                return {Error::request_conflict};
-            return {Error::none, economy::Error::none, inventory::Error::none, previous->second, true};
+        if (history_limit == 0 || history_limit > max_history)
+            throw std::invalid_argument("Invalid purchase history limit");
+    }
+
+    PreparedPurchase PurchaseBook::prepare(const ProductCatalog& catalog, const economy::Economy& economy,
+                                           const PurchaseRequest& request) const
+    {
+        if (!detail::valid_request(request)) return {{Error::invalid_request}, nullptr, nullptr};
+        const auto previous = purchases_.find(request.request_id);
+        if (previous != purchases_.end()) {
+            if (!(previous->second.request == request)) return {{Error::request_conflict}, nullptr, nullptr};
+            return {{Error::none, economy::Error::none, inventory::Error::none, previous->second, true}, nullptr, nullptr};
         }
-
-        if (state_->purchases.size() >= history_limit_)
-            return {Error::history_full};
-        const auto *product = catalog_.find(request.product_id);
-        if (!product)
-            return {Error::unknown_product};
-        if (!product->available)
-            return {Error::product_unavailable};
-
+        if (purchases_.size() >= history_limit_) return {{Error::history_full}, nullptr, nullptr};
+        const auto* product = catalog.find(request.product_id);
+        if (!product) return {{Error::unknown_product}, nullptr, nullptr};
+        if (!product->available) return {{Error::product_unavailable}, nullptr, nullptr};
         economy::Transaction transaction{request.request_id, request.destination, {}, {}};
-        if (!scale(*product, request.quantity, transaction))
-            return {Error::quantity_overflow};
-
-        auto candidate = std::make_unique<State>(State{state_->economy->clone(), state_->purchases});
-        const auto result = candidate->economy->execute(transaction);
-
-        // An economic request ID from another operation must never be adopted as a shop purchase.
+        if (!scale(*product, request.quantity, transaction)) return {{Error::quantity_overflow}, nullptr, nullptr};
+        auto candidate_economy = economy.clone();
+        auto candidate_book = std::make_unique<PurchaseBook>(*this);
+        const auto result = candidate_economy->execute(transaction);
         if (result.error == economy::Error::request_conflict || result.replayed)
-            return {Error::request_conflict};
+            return {{Error::request_conflict}, nullptr, nullptr};
         if (result.error != economy::Error::none)
-            return {Error::economy_failure, result.error, result.inventory_error};
-
+            return {{Error::economy_failure, result.error, result.inventory_error}, nullptr, nullptr};
         PurchaseReceipt receipt{request, product->version, *result.receipt};
-        candidate->purchases.emplace(request.request_id, receipt);
+        candidate_book->purchases_.emplace(request.request_id, receipt);
         PurchaseResult output{Error::none, economy::Error::none, inventory::Error::none, std::move(receipt), false};
+        return {std::move(output), std::move(candidate_economy), std::move(candidate_book)};
+    }
 
+    std::vector<PurchaseReceipt> PurchaseBook::snapshot() const
+    {
+        std::vector<PurchaseReceipt> result;
+        for (const auto& entry : purchases_) result.push_back(entry.second);
+        std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
+            return a.settlement.sequence < b.settlement.sequence;
+        });
+        return result;
+    }
+
+    Error PurchaseBook::restore(const Snapshot& snapshot)
+    {
+        if (snapshot.purchases.size() > history_limit_ || !detail::valid_links(snapshot)) return Error::invalid_snapshot;
+        std::map<economy::RequestId, PurchaseReceipt> candidate;
+        for (const auto& receipt : snapshot.purchases) candidate.emplace(receipt.request.request_id, receipt);
+        purchases_.swap(candidate);
+        return Error::none;
+    }
+
+    PurchaseResult Shop::purchase(const PurchaseRequest& request)
+    {
+        auto prepared = state_->purchases.prepare(catalog_, *state_->economy, request);
+        if (prepared.result.error != Error::none || prepared.result.replayed) return std::move(prepared.result);
+        auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book)});
         state_.swap(candidate);
-        return output;
+        return std::move(prepared.result);
     }
 
     Snapshot Shop::snapshot() const
     {
-        Snapshot result{state_->economy->snapshot(), {}};
-        for (const auto &entry : state_->purchases)
-            result.purchases.push_back(entry.second);
-        std::sort(result.purchases.begin(), result.purchases.end(),
-                  [](const auto &a, const auto &b)
-                  { return a.settlement.sequence < b.settlement.sequence; });
-        return result;
+        return {state_->economy->snapshot(), state_->purchases.snapshot()};
     }
 
-    Error Shop::restore(const Snapshot &snapshot)
+    Error Shop::restore(const Snapshot& snapshot)
     {
-        if (snapshot.purchases.size() > history_limit_ || !detail::valid_links(snapshot))
-            return Error::invalid_snapshot;
-        auto candidate = std::make_unique<State>(State{state_->economy->clone(), {}});
-
-        if (candidate->economy->restore(snapshot.economy) != economy::Error::none)
-            return Error::invalid_snapshot;
-        for (const auto &receipt : snapshot.purchases)
-            candidate->purchases.emplace(receipt.request.request_id, receipt);
+        auto candidate = std::make_unique<State>(State{state_->economy->clone(), PurchaseBook(history_limit_)});
+        if (candidate->economy->restore(snapshot.economy) != economy::Error::none ||
+            candidate->purchases.restore(snapshot) != Error::none) return Error::invalid_snapshot;
         state_.swap(candidate);
         return Error::none;
     }

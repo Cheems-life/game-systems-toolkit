@@ -6,3 +6,5 @@ add_subdirectory(inventory)
 add_subdirectory(persistence)
 add_subdirectory(economy)
 add_subdirectory(commerce)
+
+add_subdirectory(quests)

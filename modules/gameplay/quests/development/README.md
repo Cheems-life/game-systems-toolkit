@@ -1,9 +1,13 @@
 # 任务与目标：开发记录
 
-状态：第一版需求及扩展边界设计中，尚未实现。
+状态：第一版实现完成，验证结果见各步骤；仍属实验性。
 
 [模块说明](../README.md) · [统一记录规范](../../../../docs/development-records.md)
 
-- [001：第一版需求与扩展边界](001-requirements-and-extension-boundaries.md)：通用目标处理/组合边界、最低等级求值、可扩展结算准备阶段与统一提交。
+- [001：第一版需求与扩展边界](001-requirements-and-extension-boundaries.md)：2026-10-18 的实现前需求与取舍，保留历史。
+- [002：目标处理器与等级条件](002-objectives-and-level-conditions.md)
+- [003：接取、冻结规则与原子事件批次](003-event-boundaries-and-frozen-progress.md)
+- [004：共享玩家经济与领奖准备计划](004-player-coordination-and-claim-plan.md)
+- [005：玩家任务与商城统一存档](005-player-save-and-restore.md)
 
-本轮只落地设计文档。接口、运行代码及任务存档尚未实现，未有任务测试结论。
+跨系统提取见 [商城步骤 004](../../../services/commerce/development/004-independent-purchase-preparation.md)。
