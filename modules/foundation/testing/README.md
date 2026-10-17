@@ -38,7 +38,7 @@
 
 ## 测试源码导航
 
-现有测试及辅助文件的逐文件用途见 [tests/README.md](../../../tests/README.md)，每份代码开头也有简述。本模块仍未提供独立测试框架库。
+现有测试及辅助文件的逐文件用途见 [tests/README.md](../../../tests/README.md)，每份代码开头也有简述。测试已按 core、inventory、persistence、economy 和 commerce 分目录，模块各自维护构建注册。本模块仍未提供独立测试框架库。
 
 ## 开发过程与决策
 

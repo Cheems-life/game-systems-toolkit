@@ -1,0 +1,6 @@
+# 文件持久化测试：链接字节存储与背包，临时目录在当前模块构建目录创建。
+add_executable(designer_persistence_tests persistence_tests.cpp)
+target_link_libraries(designer_persistence_tests PRIVATE designer::inventory designer::persistence)
+set_target_properties(designer_persistence_tests PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_persistence_tests)
+add_test(NAME designer.persistence COMMAND designer_persistence_tests ${CMAKE_CURRENT_BINARY_DIR})

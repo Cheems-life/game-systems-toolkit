@@ -2,7 +2,7 @@
 // failed 辅助函数检查商城/经济/背包错误及状态不变；本头文件没有 main，不单独作为测试运行。
 
 #pragma once
-#include "economy_test_support.hpp"
+#include "../economy/economy_test_support.hpp"
 #include <designer/commerce/archive.hpp>
 
 namespace commerce = designer::commerce;

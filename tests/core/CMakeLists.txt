@@ -1,0 +1,6 @@
+# 核心工程冒烟测试：检查公开接口、链接和基础运行路径。
+add_executable(designer_framework_smoke framework_smoke.cpp)
+target_link_libraries(designer_framework_smoke PRIVATE designer::core)
+set_target_properties(designer_framework_smoke PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_framework_smoke)
+add_test(NAME designer.framework.smoke COMMAND designer_framework_smoke)
