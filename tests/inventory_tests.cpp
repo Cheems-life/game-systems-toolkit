@@ -1,3 +1,6 @@
+// 背包基础规则测试：检查添加、移除、拆堆、合并、交换及非法参数、容量和整数边界。
+// 用固定种子的 10000 次连续操作，对照独立数量模型检查数量守恒和失败时状态不变。
+
 #include <designer/inventory/inventory.hpp>
 #include <cstdlib>
 #include <iostream>

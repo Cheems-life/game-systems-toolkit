@@ -1,3 +1,6 @@
+// 经济测试公共辅助：提供 CHECK 检查、示例经济对象、交易请求、物品统计和快照比较。
+// failed 辅助函数同时检查错误码及失败后状态不变；本头文件没有 main，不单独作为测试运行。
+
 #pragma once
 #include <designer/economy/archive.hpp>
 #include <cstdlib>

@@ -1,3 +1,6 @@
+// 容器转移与快照恢复测试：检查宝箱拾取、仓库双向转移和多容器整体恢复。
+// 覆盖规则差异、输入别名与失败不修改双方，并用 5000 次连续转移检查物品总量守恒。
+
 #include <designer/inventory/archive.hpp>
 #include <cstdlib>
 #include <iostream>

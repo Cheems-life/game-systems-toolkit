@@ -1,3 +1,6 @@
+// 商城业务测试：检查商品配置、多份计价、数量溢出、购买失败以及改价/下架/移除后的旧请求重放。
+// 同时检查经济副本独立性、请求冲突、恢复关联和 200 次模型对照购买，不涉及真实支付。
+
 #include "commerce_test_support.hpp"
 #include <limits>
 #include <random>

@@ -1,3 +1,6 @@
+// 文件持久化测试：在独占临时目录检查有界读取、写入替换、错误返回和临时文件清理。
+// POSIX 分支还执行真实文件的多容器保存/恢复；不模拟实际断电或磁盘写满。
+
 #include <designer/persistence/file_store.hpp>
 #include <designer/inventory/archive.hpp>
 #include <cstdlib>

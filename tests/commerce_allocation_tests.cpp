@@ -1,3 +1,6 @@
+// 商城异常安全测试：仅在本测试程序中重载内存分配，逐步注入 std::bad_alloc。
+// 检查经济 clone、购买、恢复和存档编解码失败时，资产、两层历史及输出不会只更新一部分。
+
 #include "commerce_test_support.hpp"
 #include <new>
 

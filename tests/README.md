@@ -1,5 +1,25 @@
 # 测试入口
 
+各源码文件顶部已标注用途。`*.cpp` 是独立测试程序，`*_test_support.hpp` 是共享辅助代码，`CMakeLists.txt` 负责构建与注册。
+
+| 文件 | 主要用途 |
+| --- | --- |
+| [framework_smoke.cpp](framework_smoke.cpp) | 工程冒烟测试：通过公开头文件调用核心库的版本接口，检查库能编译、链接并运行。 |
+| [inventory_tests.cpp](inventory_tests.cpp) | 背包基础规则测试：检查添加、移除、拆堆、合并、交换及非法参数、容量和整数边界。 |
+| [inventory_transactions_tests.cpp](inventory_transactions_tests.cpp) | 容器转移与快照恢复测试：检查宝箱拾取、仓库双向转移和多容器整体恢复。 |
+| [inventory_archive_tests.cpp](inventory_archive_tests.cpp) | 背包存档格式测试：检查固定版本样本、编码/解码往返、结构限制与多容器恢复。 |
+| [persistence_tests.cpp](persistence_tests.cpp) | 文件持久化测试：在独占临时目录检查有界读取、写入替换、错误返回和临时文件清理。 |
+| [economy_tests.cpp](economy_tests.cpp) | 经济规则测试：检查钱包增减、金额上限、混合奖励、购买、请求去重和统一快照恢复。 |
+| [economy_archive_tests.cpp](economy_archive_tests.cpp) | 经济存档格式测试：检查余额、容器和成功交易记录的统一编码/解码及恢复后去重。 |
+| [economy_allocation_tests.cpp](economy_allocation_tests.cpp) | 经济异常安全测试：仅在本测试程序中重载全局内存分配，逐步注入 std::bad_alloc。 |
+| [commerce_tests.cpp](commerce_tests.cpp) | 商城业务测试：检查商品配置、多份计价、数量溢出、购买失败以及改价/下架/移除后的旧请求重放。 |
+| [commerce_archive_tests.cpp](commerce_archive_tests.cpp) | 商城存档格式测试：检查购买意图与经济回执的关联，以及无当前商品配置时的恢复与重放。 |
+| [commerce_allocation_tests.cpp](commerce_allocation_tests.cpp) | 商城异常安全测试：仅在本测试程序中重载内存分配，逐步注入 std::bad_alloc。 |
+| [economy_test_support.hpp](economy_test_support.hpp) | 经济测试公共辅助：提供 CHECK 检查、示例经济对象、交易请求、物品统计和快照比较。 |
+| [commerce_test_support.hpp](commerce_test_support.hpp) | 商城测试公共辅助：复用经济测试工具，创建示例商品目录和商城，比较商城完整快照。 |
+| [CMakeLists.txt](CMakeLists.txt) | 构建和注册测试，安排示例的跨进程保存/加载顺序。 |
+
+
 工程冒烟测试：验证公开头文件、库链接及运行入口能够一起工作。
 它不代表玩法规则已通过验证。使用 CTest 执行，不需要下载第三方依赖。
 

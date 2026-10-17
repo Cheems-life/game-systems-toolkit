@@ -1,3 +1,6 @@
+// 经济规则测试：检查钱包增减、金额上限、混合奖励、购买、请求去重和统一快照恢复。
+// 包含 10000 次钱包操作及 500 次模型对照交易，检查失败原子性、溢出和重复请求不重复扣款发奖。
+
 #include "economy_test_support.hpp"
 #include <limits>
 #include <random>

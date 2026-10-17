@@ -1,3 +1,6 @@
+// 经济异常安全测试：仅在本测试程序中重载全局内存分配，逐步注入 std::bad_alloc。
+// 检查交易、恢复和存档编码/解码在分配失败时不半提交，原资产、记录或输出保持不变。
+
 #include "economy_test_support.hpp"
 #include <new>
 

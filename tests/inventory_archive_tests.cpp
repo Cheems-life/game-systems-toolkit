@@ -1,3 +1,6 @@
+// 背包存档格式测试：检查固定版本样本、编码/解码往返、结构限制与多容器恢复。
+// 用截断、损坏和 3000 次字节变异验证非法存档被拒绝，失败不覆盖输出或现有容器。
+
 #include <designer/inventory/archive.hpp>
 #include <cstdlib>
 #include <iostream>

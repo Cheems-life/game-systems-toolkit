@@ -1,3 +1,6 @@
+// 商城测试公共辅助：复用经济测试工具，创建示例商品目录和商城，比较商城完整快照。
+// failed 辅助函数检查商城/经济/背包错误及状态不变；本头文件没有 main，不单独作为测试运行。
+
 #pragma once
 #include "economy_test_support.hpp"
 #include <designer/commerce/archive.hpp>

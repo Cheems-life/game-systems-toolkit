@@ -1,3 +1,6 @@
+# 测试构建入口：创建并注册各模块的独立测试程序，链接所需领域库。
+# 分配失败注入各自隔离在独立可执行文件；示例启用且在 UNIX 时，用 fixture 安排保存进程先于加载进程。
+
 add_executable(designer_framework_smoke framework_smoke.cpp)
 target_link_libraries(designer_framework_smoke PRIVATE designer::core)
 set_target_properties(designer_framework_smoke PROPERTIES CXX_EXTENSIONS OFF)
