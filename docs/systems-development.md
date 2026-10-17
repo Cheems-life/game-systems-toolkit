@@ -29,7 +29,7 @@
 | 背包与物品 | 已有实现记录 | [记录](../modules/gameplay/inventory/development/README.md) |
 | 掉落与随机奖励 | 待开发 | [记录](../modules/gameplay/loot/development/README.md) |
 | 成长与解锁 | 待开发 | [记录](../modules/gameplay/progression/development/README.md) |
-| 任务与目标 | 待开发 | [记录](../modules/gameplay/quests/development/README.md) |
+| 任务与目标 | 第一版需求设计中，尚未实现 | [记录](../modules/gameplay/quests/development/README.md) |
 | 账号与身份 | 待开发 | [记录](../modules/services/accounts/development/README.md) |
 | 数据分析 | 待开发 | [记录](../modules/services/analytics/development/README.md) |
 | 商店与支付 | 游戏内商城已实现，支付待开发 | [记录](../modules/services/commerce/development/README.md) |
