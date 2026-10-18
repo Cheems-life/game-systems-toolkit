@@ -1,127 +1,83 @@
-# 任务与目标：第一版
+# 任务与目标
 
-状态：实验性 C++17 实现。支持通用数字目标、等级门槛、冻结规则、批量事件、一次性领奖及商城/任务共享玩家状态。独立于 Godot，没有击杀、采集、对话等玩法核心字段。
+状态：实验性 C++17 实现。支持等级门槛、计数/标记目标、任务进度、一次性领奖和存档，独立于 Godot。
 
-## 使用入口与依赖
-
-- `designer::quest_core`：`quests.hpp`，包含目标处理器、等级求值、任务定义和 QuestBook；依赖 economy 的奖励类型，不链接 commerce。
-- `designer::quests`：`player.hpp` / `archive.hpp`，提供共享玩家协调与完整存档；组合 quest_core、commerce 和 economy。
-- 文件保存按需链接 `designer::persistence`，领域库不直接读写文件。
+## 先理解整体关系
 
 ```text
-Player 的候选状态
-├── Economy：唯一的钱包、容器与经济历史
-├── PurchaseBook：仅保存购买记录，不另持有钱包
-└── QuestBook：冻结任务、目标进度、事件与领奖记录
+QuestCatalog（任务配置表）
+    ↓ 接取时复制规则
+QuestBook（玩家任务簿）
+    ↓ 接收 ProgressEvent，更新目标进度
+任务完成，等待领奖
+    ↓ Player 协调任务与 Economy
+发奖励 + 标记已领奖 + 记录凭证，统一提交
 ```
 
-`Player::purchase` 与 `Player::claim` 操作同一经济对象。已有独立 `Shop` 接口仍可使用，内部也复用 PurchaseBook；不要把两个独立对象当作同步的同一个玩家。需要组合时使用 Player 入口。任务核心本身没有商城类型依赖。
+`QuestBook` 管任务，`Economy` 管资产，`Player` 把任务领奖、商城购买与同一份资产协调起来。
 
-## 定义与冻结
+## 数据结构与用途
 
-`QuestDefinition` 包含非零 ID/版本、最低等级、目标列表、奖励、组合策略和可选标题。标题仅展示，不参与规则，最大 128 字节。每个任务 1–32 个目标，目标 ID 在任务内唯一；任务目录最多 128 项。奖励至少有一项，货币与物品列表各最多 64 项，结构非法在构造时拒绝。
+下表按使用过程排列。先理解“任务配置 → 玩家进度 → 事件更新 → 领奖 → 存档”，再看条件与扩展接口。
 
-目录排序目标和奖励，拒绝重复条目、零数量及非法 ID。奖励货币/物品跨表引用最终由经济执行校验；第一版没有完整离线配置检查器。
+| 分组 | 类型 | 主要内容 | 用途 / 如何理解 |
+| --- | --- | --- | --- |
+| 身份 | `QuestId` / `ObjectiveId` / `ObjectiveTypeId` | 任务 ID / 目标 ID / 目标类型 ID | 分别回答“哪个任务”“其中哪个目标”“用哪种计算规则”。 |
+| 身份 | `EventId` | 玩家可信递增事件序号 | 标识一次事实事件，用于顺序检查和去重，不是经济请求 ID。 |
+| 任务配置 | `ObjectiveDefinition` | 目标 ID、类型、规则版本、目标值 | 一个目标的规则，例如累计达到 10。 |
+| 任务配置 | `QuestDefinition` | ID、版本、等级要求、目标、奖励、完成策略、标题 | 一个任务的完整规则，不记录玩家进度。 |
+| 任务配置 | `QuestCatalog` | 任务 ID → 定义 | 所有当前任务的配置表，用于查询与接取。 |
+| 玩家进度 | `AcceptedQuest` | 冻结定义、接取事件边界、进度数组、已领奖标记 | 玩家实际接下的任务；进度按排序后的目标一一对应。 |
+| 玩家进度 | `QuestBook` | 已接任务、已处理事件、领奖记录 | 管理一个玩家的任务状态，提供查询、接取、推进和恢复。 |
+| 状态查询 | `Status` | locked / available / active / ready / claimed | 未解锁 / 可接 / 进行中 / 可领奖 / 已领奖；由条件、进度和标记得出。 |
+| 状态查询 | `QuestView` | 错误、状态、条件结果 | 一次查询的返回值，不是接取凭证。 |
+| 接取条件 | `PlayerReadContext` | 等级、事件游标 | 调用方提供的可信玩家信息；游标界定接任务前后的事件。 |
+| 接取条件 | `ConditionSpec` | 最低等级 | 描述接取条件，不保存玩家状态。 |
+| 接取条件 | `ConditionResult` | 是否允许、原因、错误、要求值、实际值 | `evaluate` 的结果，例如要求 10 级、当前 8 级。 |
+| 接取条件 | `ConditionReason` / `ConditionError` | 等级不足 / 非法上下文或定义 | 区分正常“不满足条件”和数据本身有错误。 |
+| 目标扩展 | `ObjectiveHandler` | validate / update / complete | 目标算法接口：检查状态、计算新进度、判断完成；必须确定且无副作用。 |
+| 目标扩展 | `ObjectiveRegistry` | 类型 ID → 处理器 | 根据目标类型寻找算法；`default_objectives()` 提供默认计数和标记规则。 |
+| 目标组合 | `CompletionPolicy` | 当前只有 all | 要求所有目标完成，不支持任意完成或分阶段。 |
+| 事件推进 | `ObjectiveUpdate` | 任务 ID、目标 ID、输入值 | 更新一个目标；`value` 是算法输入，不一定是最终进度。 |
+| 事件推进 | `ProgressEvent` | 事件 ID、更新列表 | 一次事实可推进多个目标，打包提交并去重。 |
+| 事件推进 | `EventResult` | 错误、是否重放 | 告知事件是否成功，是否已经处理过。 |
+| 领奖 | `ClaimRequest` | 请求 ID、任务 ID、目标容器 | 表达“领取哪个任务，物品放哪里”。 |
+| 领奖 | `ClaimReceipt` | 领奖请求、经济结算凭证 | 成功领奖的记录，把任务身份与实际奖励关联起来。 |
+| 领奖 | `ClaimResult` | 各层错误、可选凭证、是否重放 | `Player::claim` 的返回值；失败时可定位经济或背包原因。 |
+| 统一协调 | `Player` | 经济状态、购买记录、任务簿 | 同一个玩家只有一份资产；购买和领奖都从这里操作。 |
+| 存档 | `BookSnapshot` | 已接任务、事件历史、领奖凭证 | 任务簿的独立数据副本，不含钱包和背包。 |
+| 存档 | `PlayerSnapshot` | 商城/经济快照、任务簿快照 | 一起保存资产、购买、任务和领奖状态，避免只恢复一半。 |
+| 错误 | `Error` / `ArchiveError` | 领域错误 / 文件格式错误 | 前者用于任务操作，后者用于存档编码解码。 |
 
-接取复制目标、奖励及版本作为冻结定义，初始进度为零。后续改配置或移除任务，不改变已接任务；恢复只要求对应处理器及当前资产规则可用，不要求当前任务目录仍含旧任务。
+`Player::State`、`ClaimPreparationContext` 和 `ClaimPreparation` 是协调器的私有实现：分别保存候选状态、传递领奖准备数据、组织准备步骤，普通调用方不需要创建。
 
-任务状态为未解锁、可接取、进行中、可领奖、已领奖。前两项动态求值；后续状态从已接目标进度与 claimed 标记派生。任务一次性，重复接取返回 already_accepted，不清空进度。
+## 一个例子
 
-## 等级条件：布尔、原因与错误
+任务 100 要求 5 级接取、累计击杀 10 次，奖励 100 金币：
 
-`evaluate(ConditionSpec, PlayerReadContext)` 是纯函数。当前只支持 `level >= minimum_level`，两者必须为正数。
+1. 在 `QuestCatalog` 配置 `QuestDefinition`，其中包含一个计数型 `ObjectiveDefinition`。
+2. 调用 `Player::accept`，传入可信等级与事件游标，建立 `AcceptedQuest`，初始进度为零。
+3. 玩法逻辑确认击杀后，构造 `ProgressEvent`，其中 `{100, 1, 1}` 表示给任务 100 的目标 1 输入一次计数。
+4. 调用 `Player::apply` 推进进度；达到目标后，查询状态为 `ready`。
+5. 调用 `Player::claim`。奖励到账与已领奖标记一起提交；若背包满等条件导致失败，仍可领奖。
+6. 使用 `PlayerSnapshot` 保存完整玩家状态；恢复后保留进度、资产和去重记录。
 
-| 结果 | allowed | 原因与错误 |
-| --- | --- | --- |
-| 满足 | true | reason=none，error=none |
-| 等级不足 | false | reason=level_too_low，含 required/actual |
-| 无效上下文或定义 | false | 独立 ConditionError，不冒充普通不满足 |
+## 必须记住的规则
 
-`query` 与实际 `accept` 都求值；查询结果不是接取凭证。等级由可信玩家上下文提供，不接受客户端任意上报；任务不实现升级或保存第二份等级。接取后即使降级，推进和领奖也不重新检查最低等级。
+- 接取时冻结任务定义；改配置不会改变已接任务的目标和奖励。任务一次性，不支持取消、重置或重复接取。
+- 默认计数目标按正数增量推进并在目标封顶；标记目标使用 0/1。当前仅支持单调数字进度，不支持会回退的“当前持有数量”。
+- 事件必须来自可信来源并按递增序号处理，只计算接取边界之后的事实；同 ID 同内容重放不会重复推进。一个批次全部成功或全部不变。
+- 完成不等于已领奖。`Player` 保证发奖、已领奖标记与凭证一起提交；换请求 ID 也不能重复领取。购买和领奖不能复用同一经济请求 ID。
+- 配置最多 128 个任务，每任务最多 32 个目标；事件批次最多 64 项，事件记录默认 256、最多 1024 条。历史满后拒绝新事件，尚无长期归档策略。
+- 存档为 `DQSTARCH` v1，最大 16 MiB。解码只检查结构，恢复再检查规则及事件重建；校验值不是加密或防作弊。保存失败应重试保存，不重做发奖。
+- 当前为单线程内存协调，没有并发、数据库事务或性能保证。`Player` 成功修改后旧资产与任务视图失效，跨操作保留数据使用快照。
 
-当前没有前置任务、时间或世界标记条件，任务领奖不会自动开启另一任务。未来扩展条件求值，不向状态机添加具体条件分支。
+## 代码与运行入口
 
-## 目标注册与组合边界
-
-ObjectiveRegistry 将非零 ObjectiveTypeId 映射到 `shared_ptr<const ObjectiveHandler>`。add 拒绝重复/空处理器，最多 64 项；QuestBook 接管自己的注册表副本，之后不暴露修改入口。处理器必须无状态副作用、确定性、noexcept；不能写外部对象、做 I/O 或热替换旧语义。
-
-处理器提供 validate、update、complete。默认 `default_objectives()` 装配：
-
-- type=1，rule_version=1：累计计数。target>0，正数输入按增量推进，在 target 封顶，避免加法溢出。
-- type=2，rule_version=1：永久标记。target=1，输入只能为 1，进度为 0/1，重复设置无额外变化。
-
-第一版数据载体是 uint64 数字进度，要求 `0 <= progress <= target`，更新单调不减。注册可以扩展这类行为，测试中包含自定义双倍计数处理器；复杂对象状态需未来新契约/版本，不宣称已支持任意目标类型。
-
-配置遇到未知类型/不支持版本会拒绝，恢复也失败而不跳过目标。组合判定在独立的 complete 边界，当前 `CompletionPolicy::all` 要求全部目标达成。任意达成、分阶段涉及组合及激活规则，尚未实现，不能只靠增加叶子处理器获得。
-
-“当前持有若干物品”是可回退条件，不属于本版累计获得；玩法系统与适配层负责把已确认事实转换成目标 ID/数值更新。
-
-## 事件协议与时间边界
-
-`ProgressEvent { id, updates }`，每项为任务 ID、目标 ID、正数值。id 是同一玩家的可信递增事件序号，不是任意随机 UUID；与经济请求 ID 属于不同命名空间。
-
-- 首次处理必须晚于已成功处理的事件序号；未知旧序号返回 stale_event，不支持乱序重排。
-- 相同序号、相同规范化内容返回 replayed；内容不同返回 event_conflict。
-- 更新按任务/目标排序；同批重复目标拒绝，适配层先聚合；最多 64 项。
-- 一次事件可更新多个任务。目标不存在、任务未接/已领奖、标记输入不合法等，整批失败，不推进任何目标，也不占用序号和记录。
-- 可领奖但未领取的目标仍封顶/保持标记；已领奖的新更新拒绝。旧成功事件的原样重放仍允许。
-- 空更新批次合法，可记录一个已观察但未匹配任务的事实。
-
-接取上下文为 `PlayerReadContext{level, event_cursor}`。cursor 表示可信来源确认的接取边界，不得早于已处理事件或已有任务接取边界；不能为了接任务伪造/倒退它。该任务只接受 `event.id > accepted_after` 的更新，不会补算接取前事实。来源必须保证序号忠实对应事实发生先后；核心不能识别来源把旧事实重新编号后的造假。
-
-事件默认最多记录 256 条，可配置 1–1024；满后拒绝新事件，保留旧记录用于重放，不静默清理。任务数量（包括已领奖和已从目录移除的任务）最多 128。该有界策略不适合无限期运营，长期保留/归档策略待设计。
-
-## 领奖准备列表与唯一提交
-
-领取请求为 `{request_id, quest, destination}`，均非零。Player 先查成功领奖历史，再判断任务已接、未领奖、全部目标达成。
-
-```text
-建立同一个玩家候选状态
-  → prepare_rewards：在候选 Economy 中发全部冻结奖励
-  → prepare_claimed：只将候选任务标记为已领奖
-  → prepare_receipt：记录候选领奖回执
-  → 准备返回结果
-  → 交换一个玩家状态指针
-```
-
-三个步骤以明确的 ClaimPreparation 函数列表组织；未来可在同一候选中增加世界状态准备，但本版没有世界修改或运行时事务插件。任何错误、分配失败都丢弃候选，真实资产/任务/记录均不变；不在准备阶段发送网络、写数据库或调用场景回调。
-
-同请求同意图重试返回原回执，同请求换任务/目标容器报冲突；换新 ID 也不能领取已领奖任务。余额上限、背包容量或经济历史上限失败时，仍为可领奖，可处理条件后重试。
-
-商城购买和领奖共享经济请求 ID 空间，不能复用另一业务的 ID；已存在经济交易但没有对应领奖记录时也不收编为领奖。成功经济回执是事实记录，不是任务领奖资格。
-
-## 快照、校验与存档
-
-- QuestBook::snapshot/restore 支持冻结定义、目标进度、全部事件和领奖记录。因为事件未淘汰，恢复会从零重建进度并核对存储数值，使用当前注册处理器的相同规则。
-- PlayerSnapshot 仅有一份经济数据（嵌入 commerce 快照），同时保存购买和任务信息。恢复先在候选验证资产、购买关联、任务与事件，再核对领奖经济回执，最后一次提交。
-- 结构解码不调用目标插件；未知正数类型/版本可以解析，但 restore 必须有兼容处理器。解码成功不代表已通过当前领域规则。
-- 已领取标记与领奖记录必须一一对应，奖励与冻结定义相同，购买/领奖不能共用同一经济回执。
-
-新文件 `DQSTARCH` v1，固定小端、16 MiB 上限：
-
-```text
-magic[8], version:u32=1, commerce_size:u32, commerce_bytes
-accepted_count:u32
-  quest_id:u32, version:u32, minimum_level:u32, policy:u32
-  title_size:u32, title_bytes, accepted_after:u64, claimed:u8
-  objective_count:u32
-    id:u32, type:u32, rule_version:u32, target:u64, progress:u64
-  currency_reward_count:u32, (currency:u32, amount:u64)...
-  item_reward_count:u32, (item:u32, quantity:u32)...
-event_count:u32
-  event_id:u64, update_count:u32, (quest:u32, objective:u32, value:u64)...
-claim_count:u32
-  request_id:u64, quest:u32, destination:u32, economic_sequence:u64
-checksum:u64 = FNV-1a of preceding bytes
-```
-
-序列均有明确上限；任务按 ID、事件按序号、领奖按经济序号递增，拒绝非法/重复关联、尾部垃圾、截断和未来版本。编码/解码只在成功时替换输出。FNV-1a 不是认证，无防回滚/防伪造保证；重建进度也不能证明外部事实真实。
-
-不更改 DINVARCH、DECOARCH、DSHPARCH 旧格式。可把旧 Shop 快照与空 BookSnapshot 组成 PlayerSnapshot 后由新 Player 验证恢复；不会凭空生成任务。没有旧任务格式，暂未编写任务迁移器。
-
-保存与内存成功是不同边界，保存失败重试保存，不重做发奖。多人共享世界、并发、数据库持久性及可靠外部投递仍需后续设计。当前资产规则变化也可能使旧奖励/经济记录恢复失败，需要真实迁移方案。
-
-## 运行与阅读顺序
+- [quests.hpp](include/designer/quests/quests.hpp)：上表的大部分任务类型，目标为 `designer::quest_core`，不链接商城。
+- [player.hpp](include/designer/quests/player.hpp)：共享玩家协调器与领奖结果，目标为 `designer::quests`，组合任务、商城与经济。
+- [archive.hpp](include/designer/quests/archive.hpp)：完整玩家快照编码/解码；磁盘读写另用 `designer::persistence`。
+- [测试目录](../../../tests/quests/)：核心规则、共享资产、去重、恢复与异常验证。详细结果以开发记录为准。
 
 ```sh
 cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug
@@ -131,16 +87,15 @@ ctest --test-dir build --output-on-failure
 ./build/examples/designer_quests_example build/example-quests.sav --load
 ```
 
-首条示例替换指定示例文件。它模拟计数和标记两个适配来源，验证等级门槛、降级后继续、配置冻结、商城消费与领奖，以及事件/购买/领奖重放。第二条进程用空商品/任务目录恢复。不要指向需要保留的真实存档。
+首条示例会替换指定存档，使用测试路径。已有独立 `Shop` 与 `Player` 是不同对象，不会自动同步资产；需要任务与购买共享资产时使用 `Player`。
 
-先读 [目标与任务核心](include/designer/quests/quests.hpp)，再读 [共享玩家协调](src/player.cpp) 的候选准备与提交。测试位于 [tests/quests](../../../tests/quests/)。
+## 设计原因与详细协议
 
-## 验证与限制
+详细内容按主题查阅，README 只保留学习入口：
 
-测试包含纯核心（不链接商城）、自定义处理器、等级/事件边界、多目标失败原子性、共享资产、冻结奖励、换请求 ID 不重复领奖、完整存档/重建、固定格式样本、2000 次解析变异、逐分配点 bad_alloc 和双进程恢复。实际运行结果记录在下方开发步骤中，不把接口存在当商业级保证。
-
-所有访问按单线程处理。Player 成功接取/推进/购买/领奖/恢复后旧资产和任务视图失效，取快照跨操作保存。内存候选深复制（包括历史及配置）易于验证但有明显成本，未压测。没有取消、重置、任务分支、任意组合、阶段、世界修改、编辑器或 UI。
-
-## 开发过程与决策
-
-[开发记录](development/README.md) 保留最初需求步骤 001，本次 002–005 说明具体接口、共享边界、格式、实际验证和限制。商业级标准见 [质量要求](../../../docs/quality.md)。
+- [需求与扩展边界](development/001-requirements-and-extension-boundaries.md)
+- [目标处理器与等级条件](development/002-objectives-and-level-conditions.md)
+- [冻结规则、事件协议与时间边界](development/003-event-boundaries-and-frozen-progress.md)
+- [共享玩家与领奖提交](development/004-player-coordination-and-claim-plan.md)
+- [存档布局、恢复规则与验证结果](development/005-player-save-and-restore.md)
+- [全部开发记录](development/README.md) · [工程质量要求](../../../docs/quality.md)

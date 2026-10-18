@@ -11,3 +11,7 @@
 - [005：玩家任务与商城统一存档](005-player-save-and-restore.md)
 
 跨系统提取见 [商城步骤 004](../../../services/commerce/development/004-independent-purchase-preparation.md)。
+
+## 文档维护
+
+2026-10-18：按学习反馈精简模块 README，以一张类型用途表组织数据结构，增加贯穿示例，移除首页重复的详细协议和实现说明，改为链接既有步骤 001–005。仅调整文档，不改变模型、代码和接口。核对 `quests.hpp`、`player.hpp`、`archive.hpp` 的类型与本地链接；未重跑代码测试。
