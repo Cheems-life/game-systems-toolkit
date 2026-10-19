@@ -1,9 +1,10 @@
 // 示例：玩法适配层提交通用目标更新，商城和任务共享资产，保存后独立进程恢复并重放。
-#include <designer/quests/archive.hpp>
+#include <designer/player/archive.hpp>
 #include <designer/persistence/file_store.hpp>
 #include <iostream>
 #include <stdexcept>
 namespace q = designer::quests;
+namespace player_api = designer::player;
 namespace eco = designer::economy;
 namespace inv = designer::inventory;
 namespace com = designer::commerce;
@@ -12,13 +13,13 @@ q::QuestDefinition definition() {
     return {1, 1, 5, {{10, q::counter_type, 1, 3}, {20, q::flag_type, 1, 1}},
             {{{1, 100}}, {{1001, 2}}}, q::CompletionPolicy::all, "准备出发"};
 }
-q::Player create() {
+player_api::Player create() {
     eco::Wallet wallet(eco::CurrencyCatalog({{1, 1000}, {2, 100}}));
     if (wallet.credit(1, 500) != eco::Error::none || wallet.credit(2, 90) != eco::Error::none)
         throw std::runtime_error("Invalid initial balances");
     auto economy = std::make_unique<eco::Economy>(std::move(wallet),
         std::vector<eco::Container>{{1, inv::Inventory(3, inv::ItemCatalog({{1001, 20}}))}});
-    return q::Player(com::ProductCatalog({{100, 1, true, {{{1, 100}}}, {{{2, 1}}, {{1001, 5}}}}}),
+    return player_api::Player(com::ProductCatalog({{100, 1, true, {{{1, 100}}}, {{{2, 1}}, {{1001, 5}}}}}),
                      q::QuestCatalog({definition()}), q::default_objectives(), std::move(economy));
 }
 int main(int argc, char** argv) {
@@ -33,8 +34,8 @@ int main(int argc, char** argv) {
         player.replace_products(com::ProductCatalog({})); player.replace_quests(q::QuestCatalog({}));
         std::string bytes; const auto loaded = storage::load_file(argv[1], bytes);
         if (loaded != storage::FileError::none) { std::cerr << storage::file_error_name(loaded) << '\n'; return 1; }
-        q::PlayerSnapshot snapshot; const auto parsed = q::decode_archive(bytes, snapshot);
-        if (parsed != q::ArchiveError::none) { std::cerr << q::archive_error_name(parsed) << '\n'; return 1; }
+        player_api::PlayerSnapshot snapshot; const auto parsed = player_api::decode_archive(bytes, snapshot);
+        if (parsed != player_api::ArchiveError::none) { std::cerr << player_api::archive_error_name(parsed) << '\n'; return 1; }
         if (player.restore(snapshot) != q::Error::none) return 1;
     } else {
         const auto unavailable = player.query(1, {4, 100});
@@ -51,10 +52,10 @@ int main(int argc, char** argv) {
         std::cout << "Level gate, count + flag goals, frozen rewards and shared-wallet purchase/claim succeeded.\n";
     }
     std::string before, after;
-    if (q::encode_archive(player.snapshot(), before) != q::ArchiveError::none) return 1;
+    if (player_api::encode_archive(player.snapshot(), before) != player_api::ArchiveError::none) return 1;
     if (!player.apply({101, {{1, 10, 2}}}).replayed || !player.purchase({42, 100, 1, 1}).replayed ||
         !player.claim({43, 1, 1}).replayed || player.claim({44, 1, 1}).error != q::Error::already_claimed) return 1;
-    if (q::encode_archive(player.snapshot(), after) != q::ArchiveError::none || before != after) return 1;
+    if (player_api::encode_archive(player.snapshot(), after) != player_api::ArchiveError::none || before != after) return 1;
     if (player.economy().wallet().balance(1) != 500 || player.query(1, {0, 0}).status != q::Status::claimed) return 1;
     if (load) std::cout << "Restart: frozen quest and event/purchase/claim replays restored without current catalogs.\n";
     else {

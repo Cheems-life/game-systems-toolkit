@@ -40,3 +40,4 @@
 | 网络与同步 | 待开发 | [记录](../modules/services/networking/development/README.md) |
 | 平台与发行适配 | 待开发 | [记录](../modules/services/platform/development/README.md) |
 | 社交与组队 | 待开发 | [记录](../modules/services/social/development/README.md) |
+| 玩家业务协调 | 实验性，独立模块已提取 | [记录](../modules/gameplay/player/development/README.md) |

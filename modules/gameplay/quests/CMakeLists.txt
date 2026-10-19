@@ -7,9 +7,5 @@ target_link_libraries(designer_quest_core PUBLIC designer::economy)
 set_target_properties(designer_quest_core PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
 designer_enable_warnings(designer_quest_core)
 
-add_library(designer_quests STATIC src/player.cpp src/archive.cpp)
-add_library(designer::quests ALIAS designer_quests)
-target_compile_features(designer_quests PUBLIC cxx_std_17)
-target_link_libraries(designer_quests PUBLIC designer::quest_core designer::commerce)
-set_target_properties(designer_quests PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
-designer_enable_warnings(designer_quests)
+# Both task targets expose only the task core, never the player coordinator.
+add_library(designer::quests ALIAS designer_quest_core)

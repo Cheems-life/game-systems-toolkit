@@ -96,3 +96,5 @@
 ## 系统开发记录
 
 每个系统按开发步骤记录设计要点、方案比较、选择理由、实现与验证。阅读 [全系统开发记录索引](docs/systems-development.md)；后续开发遵循 [记录约定](docs/development-records.md)。
+
+玩家跨系统协调位于独立 [玩家模块](modules/gameplay/player/README.md)，任务核心不再承担购买与完整玩家存档。

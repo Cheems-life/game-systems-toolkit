@@ -14,7 +14,7 @@ QuestBook（玩家任务簿）
 发奖励 + 标记已领奖 + 记录凭证，统一提交
 ```
 
-`QuestBook` 管任务，`Economy` 管资产，`Player` 把任务领奖、商城购买与同一份资产协调起来。
+`QuestBook` 管任务，`Economy` 管资产，独立 [玩家模块](../player/README.md) 的 `Player` 把任务领奖、商城购买与同一份资产协调起来。
 
 ## 数据结构与用途
 
@@ -43,11 +43,11 @@ QuestBook（玩家任务簿）
 | 事件推进 | `EventResult` | 错误、是否重放 | 告知事件是否成功，是否已经处理过。 |
 | 领奖 | `ClaimRequest` | 请求 ID、任务 ID、目标容器 | 表达“领取哪个任务，物品放哪里”。 |
 | 领奖 | `ClaimReceipt` | 领奖请求、经济结算凭证 | 成功领奖的记录，把任务身份与实际奖励关联起来。 |
-| 领奖 | `ClaimResult` | 各层错误、可选凭证、是否重放 | `Player::claim` 的返回值；失败时可定位经济或背包原因。 |
+| 领奖 | `designer::player::ClaimResult` | 各层错误、可选凭证、是否重放 | `Player::claim` 的返回值；失败时可定位经济或背包原因。 |
 | 统一协调 | `Player` | 经济状态、购买记录、任务簿 | 同一个玩家只有一份资产；购买和领奖都从这里操作。 |
 | 存档 | `BookSnapshot` | 已接任务、事件历史、领奖凭证 | 任务簿的独立数据副本，不含钱包和背包。 |
-| 存档 | `PlayerSnapshot` | 商城/经济快照、任务簿快照 | 一起保存资产、购买、任务和领奖状态，避免只恢复一半。 |
-| 错误 | `Error` / `ArchiveError` | 领域错误 / 文件格式错误 | 前者用于任务操作，后者用于存档编码解码。 |
+| 存档 | `designer::player::PlayerSnapshot` | 商城/经济快照、任务簿快照 | 一起保存资产、购买、任务和领奖状态，避免只恢复一半。 |
+| 错误 | `quests::Error` / `player::ArchiveError` | 领域错误 / 文件格式错误 | 前者用于任务操作，后者用于存档编码解码。 |
 
 `Player::State`、`ClaimPreparationContext` 和 `ClaimPreparation` 是协调器的私有实现：分别保存候选状态、传递领奖准备数据、组织准备步骤，普通调用方不需要创建。
 
@@ -74,9 +74,9 @@ QuestBook（玩家任务簿）
 
 ## 代码与运行入口
 
-- [quests.hpp](include/designer/quests/quests.hpp)：上表的大部分任务类型，目标为 `designer::quest_core`，不链接商城。
-- [player.hpp](include/designer/quests/player.hpp)：共享玩家协调器与领奖结果，目标为 `designer::quests`，组合任务、商城与经济。
-- [archive.hpp](include/designer/quests/archive.hpp)：完整玩家快照编码/解码；磁盘读写另用 `designer::persistence`。
+- [quests.hpp](include/designer/quests/quests.hpp)：上表的大部分任务类型，目标为 `designer::quests`（也可用 `designer::quest_core`），不链接商城或玩家模块。
+- [player.hpp](../player/include/designer/player/player.hpp)：独立玩家协调器与领奖结果，目标为 `designer::player`，组合任务、商城与经济。
+- [archive.hpp](../player/include/designer/player/archive.hpp)：玩家模块的完整快照编码/解码；磁盘读写另用 `designer::persistence`。
 - [测试目录](../../../tests/quests/)：核心规则、共享资产、去重、恢复与异常验证。详细结果以开发记录为准。
 
 ```sh
@@ -99,3 +99,5 @@ ctest --test-dir build --output-on-failure
 - [共享玩家与领奖提交](development/004-player-coordination-and-claim-plan.md)
 - [存档布局、恢复规则与验证结果](development/005-player-save-and-restore.md)
 - [全部开发记录](development/README.md) · [工程质量要求](../../../docs/quality.md)
+
+玩家协调层提取与源码迁移见 [步骤 006](development/006-extract-player-layer.md)。

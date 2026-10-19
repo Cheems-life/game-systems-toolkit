@@ -22,7 +22,7 @@ cmake/                         构建辅助
 docs/                          设计记录
 ```
 
-每个已实现模块有独立构建目标和 `designer::<模块>` 别名。当前提供 `designer::core`、`designer::inventory`、`designer::persistence`、`designer::economy` 和 `designer::commerce`；背包有独立实现，不依赖 core。其他模块在真正开发时再补代码目录。
+每个已实现模块有独立构建目标和 `designer::<模块>` 别名。当前提供 `designer::core`、`designer::inventory`、`designer::persistence`、`designer::economy` 、`designer::commerce`、`designer::quests` 和 `designer::player`；背包有独立实现，不依赖 core。其他模块在真正开发时再补代码目录。
 
 模块只声明实际需要的依赖，不强制全部依赖 core。示例、测试与适配器依赖领域模块，领域模块不依赖它们。不要为了目录完整引入事件总线、服务定位器、万能基类或全局单例。
 
@@ -51,4 +51,6 @@ MMO 的可信端、重复请求与持久化要求从设计阶段记录；可以�
 
 商城依赖经济模块，通过所有权和候选 clone 协调资产与购买意图一起提交。商城重试在查询当前商品前执行，历史回执不受改价/下架影响；商城存档嵌入经济存档并验证回执关联。没有真实支付实现。
 
-任务第一版增加 `designer::quest_core`（处理器、条件与任务册，不链接商城）和 `designer::quests`（共享玩家协调与存档）。Player 拥有唯一 Economy、无资产的 PurchaseBook 与 QuestBook。商城旧 Shop 也复用纯 PurchaseBook::prepare，不更改旧格式。玩家候选准备奖励、领奖标记和回执后一次提交；没有场景/数据库/网络副作用。
+任务核心 `designer::quests`（别名 `designer::quest_core`）仅包含处理器、条件与任务簿，不链接商城或玩家模块。独立 `designer::player` 组合任务和商城，拥有唯一 Economy、无资产 PurchaseBook 与 QuestBook，负责整体快照与存档。底层只读取必要上下文，不包含完整 Player；任务保留具体协调器友元前置声明而无反向链接。详见 [玩家模块](../modules/gameplay/player/README.md)。
+
+玩家准备奖励、领奖标记和回执后一次提交，没有场景/数据库/网络副作用。原 Shop 可独立使用，内部复用 PurchaseBook::prepare；不另创建与 Player 自动同步的钱包。完整存档沿用 DQSTARCH v1，提取只改变源码入口。

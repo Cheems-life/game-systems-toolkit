@@ -32,7 +32,7 @@ int main() {
     CHECK(funds.claim({700, 1, 1}).error == quest::Error::none && funds.economy().wallet().balance(1) == 1000);
 
     auto capacity_task = task(); capacity_task.reward.items = {{10, 11}};
-    quest::Player capacity(products(), quest::QuestCatalog({capacity_task}), quest::default_objectives(), make_economy(32, 1).clone());
+    player_api::Player capacity(products(), quest::QuestCatalog({capacity_task}), quest::default_objectives(), make_economy(32, 1).clone());
     ready(capacity); failed_before = capacity.snapshot(); failed = capacity.claim({1, 1, 1});
     CHECK(failed.error == quest::Error::economy_failure && failed.inventory_error == inv::Error::insufficient_capacity);
     CHECK(equal(failed_before, capacity.snapshot()));
@@ -58,7 +58,7 @@ int main() {
     CHECK(restored.restore(bad) == quest::Error::invalid_snapshot && equal(committed, restored.snapshot()));
     auto occupied = make_economy();
     CHECK(occupied.execute({8, 1, {}, task().reward}).error == eco::Error::none);
-    quest::Player collision(products(), quest::QuestCatalog({task()}), quest::default_objectives(), occupied.clone());
+    player_api::Player collision(products(), quest::QuestCatalog({task()}), quest::default_objectives(), occupied.clone());
     ready(collision); const auto collision_before = collision.snapshot();
     CHECK(collision.claim({8, 1, 1}).error == quest::Error::request_conflict && equal(collision_before, collision.snapshot()));
     auto full = player(100, 256, 3, 1); ready(full);
