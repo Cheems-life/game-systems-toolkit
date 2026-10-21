@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 资源管理 | 待开发 | [记录](../modules/foundation/assets/development/README.md) |
 | 音频 | 待开发 | [记录](../modules/foundation/audio/development/README.md) |
-| 配置与数据定义 | 待开发 | [记录](../modules/foundation/configuration/development/README.md) |
+| 配置与数据定义 | 第一版 JSON 启动加载与跨表校验 | [记录](../modules/foundation/configuration/development/README.md) |
 | 运行时与模块生命周期 | 已有实现记录 | [记录](../modules/foundation/core/development/README.md) |
 | 日志与诊断 | 待开发 | [记录](../modules/foundation/diagnostics/development/README.md) |
 | 事件与消息 | 待开发 | [记录](../modules/foundation/events/development/README.md) |

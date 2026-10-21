@@ -1,41 +1,92 @@
 # 配置与数据定义
 
-状态：设计骨架，尚未实现。技术栈、公共 API 与数据格式待确定。
+状态：实验性 C++17 启动配置加载与校验实现。支持 JSON 配置物品、货币、商品和任务，独立于引擎。
 
-## 适用范围
+## 先理解流程
 
-通用基础。本模块可以独立选用，不要求游戏集成整个工具包。
+```text
+一份 game.json（四张表 + 两种包版本）
+    ↓ 有界读取与严格 JSON 解析
+类型、范围、重复、领域规则、目标处理器和跨表引用校验
+    ↓ 全部通过后返回完整只读 Bundle
+复制 Catalog → 创建 Inventory / Wallet / Shop / QuestBook / Player
+```
 
-## 职责与边界
+配置描述“游戏有哪些内容”；钱包、背包和任务簿描述“玩家当前拥有什么/做到哪一步”。配置不是玩家存档，也不包含初始资产、背包格数或玩法事件来源。
 
-配置加载、类型校验、版本标识、数据导入与引用检查。
+## 类型与依赖
 
-领域规则与引擎、存储、网络及第三方 SDK 通过明确接口连接。仅依赖实际需要的模块，依赖关系在实现前记录；不默认依赖所有基础模块。服务类模块的客户端接口不等于完整后端实现。
+| 类型 / 接口 | 用途 |
+| --- | --- |
+| `Bundle` | 完整校验后的物品、货币、商品、任务目录和目标处理器注册表，只提供 const 查询 |
+| `LoadResult` | 成功包含 `unique_ptr<const Bundle>`；数据失败包含 `Diagnostic`，不会同时返回部分包 |
+| `Diagnostic` | 错误类型、来源、字段路径、可获得的记录 ID、原因及语法错误字节位置 |
+| `decode(bytes, registry, source)` | 从 UTF-8 JSON 字节加载，source 用于诊断 |
+| `load(path, registry)` | 有界读文件后调用同一套校验 |
 
-## 商业级验收重点
+`designer::configuration` 是当前四个领域的配置适配器，依赖 `designer::quest_core`、`designer::commerce`（传递 economy/inventory），私有依赖 persistence 文件读取及 vendored JSON。目录分类不代表依赖层级；领域模块没有反向依赖配置、JSON 或文件系统。使用一个领域时仍可直接创建自己的 Catalog，不必链接本模块。
 
-非法配置在构建期被发现；版本可追踪；运行时有明确失败策略。
+公共头：[bundle.hpp](include/designer/configuration/bundle.hpp)。JSON 类型不出现在公共 API；固定版本依赖与许可证见 [third_party](../../../third_party/nlohmann_json/README.md)。当前源码/CMake 集成，不提供安装包。
 
-- 明确正常路径、边界条件、失败处理和资源清理；对关键规则进行可重复验证。
-- 若维护持久化状态，说明数据版本、迁移、兼容和恢复策略。
-- 若涉及异步或并发，明确取消、超时、重复请求、线程归属和一致性规则。
-- 声明性能预算、支持平台和适用限制；提供可运行的最小示例与集成说明。
+## 文件格式 v1
 
-## 计划交付
+完整可运行样例见 [game.json](../../../examples/configuration/game.json)。所有字段必填；四张表允许为空，但表内每个商品价格、商品奖励、任务目标列表和任务奖励不能为空。下列正整数均必须使用整数字面量，拒绝 `1.0`、`1e0`、负数、零、字符串和布尔值。
 
-1. 领域模型、规则说明、依赖与接口契约。
-2. 核心实现及必要的引擎或服务适配器。
-3. 最小示例、关键测试与故障验证场景。
-4. 使用文档、版本兼容说明与已知限制。
+| 位置 | 字段及含义 |
+| --- | --- |
+| 根对象 | `schema_version: 1`、`content_version: uint64`、`items`、`currencies`、`products`、`quests` |
+| items[] | `id: uint32`、`max_stack: uint32` |
+| currencies[] | `id: uint32`、`max_balance: uint64` |
+| products[] | `id`、`version`（uint32）、`available`（bool）、`unit_cost`、`unit_reward` |
+| unit_cost | `currencies: [{currency: uint32, amount: uint64}]` |
+| unit_reward / reward | `currencies: [{currency, amount}]`、`items: [{item: uint32, quantity: uint32}]`，各子列表可空，但奖励整体不可空 |
+| quests[] | `id`、`version`、`minimum_level`（uint32）、`title`（UTF-8 字符串）、`policy: "all"`、`objectives`、`reward` |
+| objectives[] | `id`、`type`、`rule_version`（uint32）、`target: uint64` |
 
-## 待讨论
+物品/货币/商品/任务各自 ID 唯一；每个任务内目标 ID 唯一，每个价格或奖励子列表内资产 ID 唯一。输入顺序不影响领域目录的既有规范化。未知字段和重复 JSON 键（含转义后同名键）报错。
 
-配置格式、编辑工具、代码生成和热更新需求是什么？
+`schema_version` 决定读取端支持的结构。`content_version` 是发布者提供的内容批次标识；同号不同内容不会自动拒绝，也不提供防回滚或自动迁移。商品版本、任务版本和目标 `rule_version` 分别属于各自领域，不因包版本改变而自动升级。
 
-## 完成定义
+## 校验与扩展
 
-遵循 [工程质量要求](../../../docs/quality.md)。README 的存在不代表模块已经满足商业级要求；必须提供实现、验证证据及适用范围后才能标记为可用。
+- 检查价格及所有奖励引用的物品/货币存在，包括下架商品。
+- 内置目标类型 `1` 为计数、`2` 为标记，规则版本均为 1；标记 target 必须为 1。自定义处理器先注册到 `ObjectiveRegistry`，再传入加载器；文件仅选择类型与参数，不能定义新算法。
+- 等级条件目前只有 minimum_level；完成策略仅 all。添加新数据不需要改业务代码；增加 OR/分阶段等规则仍需实现。
+- 玩法适配器负责把可信事实映射到目标，加载器不推断“哪个物品或事件推进哪个任务”。
+- 引用有效不代表某个玩家一定能完成操作。余额上限、购买数量缩放溢出、背包容量等仍由业务执行检查；本步不计算经济可达性。
 
-## 开发过程与决策
+上限：输入 4 MiB，JSON 解析深度最大 32（根容器算第 1 层），物品 4096、货币 1024、商品 4096、任务 128，每任务目标 32，价格/奖励的每个资产子列表 64，标题 128 UTF-8 字节。包级上限不改变领域原有 API 的容量。超过 uint64 的整数不会经浮点近似后接受。
 
-按步骤阅读 [开发记录](development/README.md)，了解设计要点、选择理由、实现过程与验证限制。后续变更须同步追加记录。
+## 接入与错误处理
+
+```cpp
+#include <designer/configuration/bundle.hpp>
+namespace cfg = designer::configuration;
+
+auto result = cfg::load("game.json", designer::quests::default_objectives());
+if (result.error) {
+    // 展示 source、path、record_id、message，停止创建使用这份配置的业务对象。
+    return;
+}
+const auto& data = *result.bundle;
+designer::inventory::Inventory bag(16, data.items());
+designer::economy::Wallet wallet(data.currencies());
+// Player 接入完整示例见 examples/configuration/main.cpp。
+```
+
+检测到的首个错误即停止；结构/规则诊断包含字段或记录路径，例如 `$.products[0].unit_reward.items[0].item`，记录 ID 可用时单独提供。JSON 语法错误使用根路径与 1-based 字节位置；重复 JSON 键、深度/数字解析错误可能只有根路径，不能保证都有记录 ID。诊断消息为英文，调用方可按 Error 做本地化。资源分配失败等异常向上传播，不保证永不抛出。
+
+局部解析和目录随失败销毁，已有包和玩家不变。加载成功不会自动替换运行中对象；不要把逐个调用现有 replace 接口当作四表一次热更新。已有任务规则、购买记录的冻结行为保持不变；配置包版本尚未写入存档。无数据库事务或多线程发布保证。
+
+## 运行
+
+```sh
+./build/examples/designer_config_check examples/configuration/game.json
+./build/examples/designer_config_example examples/configuration/game.json
+./build/examples/designer_config_example examples/configuration/game.json 200 2
+ctest --test-dir build -R configuration --output-on-failure
+```
+
+校验命令成功退出码 0，数据错误 1，用法错误 2，可由 CI/构建脚本调用；没有自动扫描全仓库配置。命令使用默认目标注册表，自定义游戏需自行接入处理器。集成示例只操作临时内存玩家：提供所选商品的一份初始价格，购买、按所选任务目标模拟输入、领奖并重放。它不是实际玩法事件绑定实现；不合适的商品/奖励组合可能因容量或余额失败。
+
+本步不支持 Excel/CSV、热更新、拆分文件包、配置签名、存档规则迁移或编辑器。完整取舍与实际验证见 [开发步骤 001](development/001-json-bundle-and-validation.md)。

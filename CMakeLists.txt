@@ -21,6 +21,7 @@ add_subdirectory(modules/gameplay/economy)
 add_subdirectory(modules/services/commerce)
 add_subdirectory(modules/gameplay/quests)
 add_subdirectory(modules/gameplay/player)
+add_subdirectory(modules/foundation/configuration)
 
 if(DESIGNER_BUILD_EXAMPLES)
     add_subdirectory(examples)

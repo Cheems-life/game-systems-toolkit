@@ -11,6 +11,7 @@ tests/
 ├── persistence/   文件读写与安全替换
 ├── economy/       经济规则、存档、分配失败及经济辅助头文件
 ├── commerce/      商城规则、存档、分配失败及商城辅助头文件
+├── configuration/ 配置格式、引用、处理器扩展、共享业务接入与分配失败
 ├── quests/        任务核心、共享玩家、格式、分配失败及任务辅助头文件
 ├── CMakeLists.txt 测试总入口
 └── README.md      文件用途索引
@@ -59,3 +60,13 @@ tests/
 | [quests/allocation_tests.cpp](quests/allocation_tests.cpp) | 对接取、事件、购买、领奖、恢复和编解码逐分配点注入 bad_alloc。 |
 | [quests/quest_test_support.hpp](quests/quest_test_support.hpp) | 示例任务/玩家构造、就绪设置和完整快照比较。 |
 | [quests/CMakeLists.txt](quests/CMakeLists.txt) | 分别链接纯任务核心与玩家协调库，并安排双进程恢复 fixture。 |
+
+配置测试文件：
+
+| 文件 | 主要用途 |
+| --- | --- |
+| [configuration/bundle_tests.cpp](configuration/bundle_tests.cpp) | JSON 严格解析、精确整数、重复/上限、跨表引用、处理器扩展、文件错误及字节扰动。 |
+| [configuration/integration_tests.cpp](configuration/integration_tests.cpp) | 文件驱动共享钱包、购买和领奖；额外内容与旧任务冻结行为。 |
+| [configuration/allocation_tests.cpp](configuration/allocation_tests.cpp) | 成功和非法引用路径逐点注入 bad_alloc，既有配置包保持可用。 |
+| [configuration/test_support.hpp](configuration/test_support.hpp) | 固定样例读取、输入替换及断言。 |
+| [configuration/CMakeLists.txt](configuration/CMakeLists.txt) | 注册单元/集成测试与配置校验/双内容示例。 |

@@ -8,3 +8,5 @@ add_subdirectory(economy)
 add_subdirectory(commerce)
 
 add_subdirectory(quests)
+
+add_subdirectory(configuration)

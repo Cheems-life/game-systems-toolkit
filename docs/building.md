@@ -1,6 +1,6 @@
 # 构建与验证
 
-需要 CMake 3.20 或更高版本，以及支持 C++17 的编译器。当前不需要 Godot、数据库或下载第三方库。
+需要 CMake 3.20 或更高版本，以及支持 C++17 的编译器。当前不需要 Godot、数据库或构建时联网下载；JSON 解析头文件及许可证已固定版本纳入 third_party。
 
 从仓库根目录执行：
 
@@ -79,4 +79,15 @@ cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON
 ./build/examples/designer_quests_example build/example-quests.sav --load
 ```
 
-只需任务核心时链接 `designer::quest_core`；需要商城/任务共享资产、领奖及完整存档时链接 `designer::quests`。文件存储另加 `designer::persistence`。测试按模块位于 `tests/quests/`，CTest 可用 `-R quests` 筛选；存取示例仅在已启用示例的 UNIX 平台注册。
+只需任务核心时链接 `designer::quest_core`；需要商城/任务共享资产、领奖及完整存档时链接 `designer::player`。文件存储另加 `designer::persistence`。测试按模块位于 `tests/quests/`，CTest 可用 `-R quests` 筛选；存取示例仅在已启用示例的 UNIX 平台注册。
+
+## JSON 配置加载
+
+```sh
+./build/examples/designer_config_check examples/configuration/game.json
+./build/examples/designer_config_example examples/configuration/game.json
+./build/examples/designer_config_example examples/configuration/game.json 200 2
+ctest --test-dir build -R configuration --output-on-failure
+```
+
+链接 `designer::configuration`；需要共享玩家协调再链接 `designer::player`。固定 JSON 依赖只在适配器内部使用，不暴露第三方头文件路径。校验命令只读文件、不创建玩家，失败返回非零退出码，可手动接入构建/CI。JSON 样例同时覆盖新增商品与任务，规则见 [配置模块](../modules/foundation/configuration/README.md)。

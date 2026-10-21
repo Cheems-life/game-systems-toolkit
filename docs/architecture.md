@@ -54,3 +54,5 @@ MMO 的可信端、重复请求与持久化要求从设计阶段记录；可以�
 任务核心 `designer::quests`（别名 `designer::quest_core`）仅包含处理器、条件与任务簿，不链接商城或玩家模块。独立 `designer::player` 组合任务和商城，拥有唯一 Economy、无资产 PurchaseBook 与 QuestBook，负责整体快照与存档。底层只读取必要上下文，不包含完整 Player；任务保留具体协调器友元前置声明而无反向链接。详见 [玩家模块](../modules/gameplay/player/README.md)。
 
 玩家准备奖励、领奖标记和回执后一次提交，没有场景/数据库/网络副作用。原 Shop 可独立使用，内部复用 PurchaseBook::prepare；不另创建与 Player 自动同步的钱包。完整存档沿用 DQSTARCH v1，提取只改变源码入口。
+
+配置适配器 `designer::configuration` 依赖当前四种领域目录，私有使用 JSON 与文件读取；领域模块不反向依赖它。加载器先构造完整校验包，再交给应用层创建对象。它处于配置接入层，不因为目录在 foundation 就成为所有领域的底层依赖；本步不改变 Player 内存事务、冻结规则或存档格式。详见 [配置说明](../modules/foundation/configuration/README.md)。
