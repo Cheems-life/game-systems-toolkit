@@ -2,6 +2,7 @@
 #include <designer/player/archive.hpp>
 #include <designer/commerce/archive.hpp>
 #include <set>
+#include <algorithm>
 #include <stdexcept>
 #include <type_traits>
 
@@ -96,6 +97,9 @@ namespace designer::player
                 {
                     return false;
                 }
+                bool bound = false;
+                for (const auto& objective : d.objectives) if (objective.binding) bound = true;
+                if ((!quest.claimed || !bound) && quest.fact_until != 0) return false;
                 for (std::size_t i = 0; i < quest.progress.size(); ++i)
                     if (quest.progress[i] > d.objectives[i].target)
                         return false;
@@ -104,7 +108,8 @@ namespace designer::player
             quests::EventId event_id = 0;
             for (const auto &event : book.events)
             {
-                if (event.id <= event_id || event.updates.size() > quests::max_updates)
+                if (event.id <= event_id || event.updates.size() > quests::max_updates ||
+                    (event.fact && (!quests::valid_fact(*event.fact) || event.fact->id != event.id)))
                     return false;
                 event_id = event.id;
                 for (std::size_t i = 0; i < event.updates.size(); ++i)
@@ -121,6 +126,11 @@ namespace designer::player
                     if (!known)
                         return false;
                 }
+            }
+            for (const auto& quest : book.quests) {
+                if (quest.fact_until > event_id) return false;
+                if (quest.fact_until != 0 && std::none_of(book.events.begin(), book.events.end(),
+                    [&](const auto& e) { return e.id == quest.fact_until; })) return false;
             }
             std::map<economy::RequestId, const economy::Receipt *> ledger;
             std::set<economy::RequestId> purchases, requests;
@@ -219,7 +229,7 @@ namespace designer::player
         if (encoded != commerce::ArchiveError::none)
             return ArchiveError::malformed;
         std::string bytes(magic);
-        put(bytes, 1, 4);
+        put(bytes, 2, 4);
         put(bytes, nested.size(), 4);
         bytes += nested;
         put(bytes, snapshot.quests.quests.size(), 4);
@@ -234,6 +244,7 @@ namespace designer::player
             bytes += d.title;
             put(bytes, quest.accepted_after, 8);
             put(bytes, quest.claimed ? 1 : 0, 1);
+            put(bytes, quest.fact_until, 8);
             put(bytes, d.objectives.size(), 4);
             for (std::size_t i = 0; i < d.objectives.size(); ++i)
             {
@@ -243,6 +254,12 @@ namespace designer::player
                 put(bytes, objective.rule_version, 4);
                 put(bytes, objective.target, 8);
                 put(bytes, quest.progress[i], 8);
+                put(bytes, objective.binding ? 1 : 0, 1);
+                if (objective.binding) {
+                    put(bytes, objective.binding->fact_type, 4);
+                    put(bytes, objective.binding->subject, 4);
+                    put(bytes, static_cast<std::uint32_t>(objective.binding->input), 4);
+                }
             }
             write_reward(bytes, d.reward);
         }
@@ -256,6 +273,12 @@ namespace designer::player
                 put(bytes, update.quest, 4);
                 put(bytes, update.objective, 4);
                 put(bytes, update.value, 8);
+            }
+            put(bytes, event.fact ? 1 : 0, 1);
+            if (event.fact) {
+                put(bytes, event.fact->type, 4);
+                put(bytes, event.fact->subject, 4);
+                put(bytes, event.fact->quantity, 8);
             }
         }
         put(bytes, snapshot.quests.claims.size(), 4);
@@ -282,7 +305,7 @@ namespace designer::player
         std::uint64_t version = 0, size = 0;
         if (!header.get(version, 4) || !header.get(size, 4))
             return ArchiveError::malformed;
-        if (version != 1)
+        if (version != 1 && version != 2)
             return ArchiveError::unsupported_version;
         Reader footer(bytes.substr(bytes.size() - 8));
         std::uint64_t hash = 0;
@@ -318,6 +341,7 @@ namespace designer::player
             d.policy = static_cast<quests::CompletionPolicy>(policy);
             d.title = std::string(title);
             quest.claimed = claimed == 1;
+            if (version == 2 && !reader.get(quest.fact_until, 8)) return ArchiveError::malformed;
             std::size_t objectives = 0;
             if (!reader.count(quests::max_objectives, objectives))
                 return ArchiveError::malformed;
@@ -328,6 +352,18 @@ namespace designer::player
                 if (!reader.u32(definition.id) || !reader.u32(definition.type) || !reader.u32(definition.rule_version) ||
                     !reader.get(definition.target, 8) || !reader.get(progress, 8))
                     return ArchiveError::malformed;
+                if (version == 2) {
+                    std::uint64_t present = 0;
+                    if (!reader.get(present, 1) || present > 1) return ArchiveError::malformed;
+                    if (present == 1) {
+                        quests::ObjectiveBinding binding{};
+                        std::uint32_t input = 0;
+                        if (!reader.u32(binding.fact_type) || !reader.u32(binding.subject) || !reader.u32(input))
+                            return ArchiveError::malformed;
+                        binding.input = static_cast<quests::FactInput>(input);
+                        definition.binding = binding;
+                    }
+                }
                 d.objectives.push_back(definition);
                 quest.progress.push_back(progress);
             }
@@ -349,6 +385,16 @@ namespace designer::player
                 if (!reader.u32(update.quest) || !reader.u32(update.objective) || !reader.get(update.value, 8))
                     return ArchiveError::malformed;
                 event.updates.push_back(update);
+            }
+            if (version == 2) {
+                std::uint64_t present = 0;
+                if (!reader.get(present, 1) || present > 1) return ArchiveError::malformed;
+                if (present == 1) {
+                    quests::GameplayFact fact{event.id, 0, 0, 0};
+                    if (!reader.u32(fact.type) || !reader.u32(fact.subject) || !reader.get(fact.quantity, 8))
+                        return ArchiveError::malformed;
+                    event.fact = fact;
+                }
             }
             candidate.quests.events.push_back(std::move(event));
         }

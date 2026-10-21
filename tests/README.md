@@ -70,3 +70,14 @@ tests/
 | [configuration/allocation_tests.cpp](configuration/allocation_tests.cpp) | 成功和非法引用路径逐点注入 bad_alloc，既有配置包保持可用。 |
 | [configuration/test_support.hpp](configuration/test_support.hpp) | 固定样例读取、输入替换及断言。 |
 | [configuration/CMakeLists.txt](configuration/CMakeLists.txt) | 注册单元/集成测试与配置校验/双内容示例。 |
+
+事实绑定新增回归：
+
+| 文件 | 主要用途 |
+| --- | --- |
+| [quests/facts_tests.cpp](quests/facts_tests.cpp) | 纯任务核心：过滤、双输入、一对多、空匹配、冻结、来源冲突、时序、批次失败与 64/65 项边界。 |
+| [quests/fact_archive_tests.cpp](quests/fact_archive_tests.cpp) | 玩家关闭边界、恢复重建、篡改、截断、v2 标记及 2000 次字节变异；发奖失败不关闭绑定。 |
+| [quests/fact_archive_golden.hpp](quests/fact_archive_golden.hpp) | 独立 Python struct 组装的固定小端 v2 样本，不调用库编码器。 |
+| [configuration/binding_tests.cpp](configuration/binding_tests.cpp) | v1/v2 字段契约、null/非整数区别、枚举和范围诊断、加载后路由。 |
+
+既有 quests/allocation_tests.cpp 扩展事实投递、绑定任务领奖、v2 编解码/恢复逐分配点故障注入；configuration/allocation_tests.cpp 增加 v2 绑定配置路径。facts_demo.save/load 为独立进程 fixture。

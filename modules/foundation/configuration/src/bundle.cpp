@@ -136,8 +136,9 @@ LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& regis
             throw Failure{{Error::syntax, std::string(source), "$", {}, "JSON parser stopped"}};
         const Cursor root{sax.root, "$", source};
         root.object({"schema_version", "content_version", "items", "currencies", "products", "quests"});
-        if (positive<std::uint32_t>(root.at("schema_version")) != 1)
-            root.at("schema_version").fail(Error::unsupported_version, "only schema_version 1 is supported");
+        const auto schema = positive<std::uint32_t>(root.at("schema_version"));
+        if (schema != 1 && schema != 2)
+            root.at("schema_version").fail(Error::unsupported_version, "only schema_version 1 and 2 are supported");
         const auto version = positive<std::uint64_t>(root.at("content_version"));
         std::vector<inventory::ItemDefinition> item_defs;
         auto table = root.at("items"); table.array(max_items);
@@ -192,10 +193,24 @@ LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& regis
             const auto goals = row.at("objectives"); goals.array(quests::max_objectives);
             std::set<std::uint32_t> goal_ids;
             for (std::size_t j = 0; j < goals.value.size(); ++j) {
-                const auto goal = goals.at(j); goal.object({"id", "type", "rule_version", "target"});
+                const auto goal = goals.at(j);
+                if (schema == 1) goal.object({"id", "type", "rule_version", "target"});
+                else goal.object({"id", "type", "rule_version", "target", "binding"});
                 const auto goal_id = positive<std::uint32_t>(goal.at("id")); unique(goal_ids, goal_id, goal.at("id"));
                 quests::ObjectiveDefinition o{goal_id, positive<std::uint32_t>(goal.at("type")),
                     positive<std::uint32_t>(goal.at("rule_version")), positive<std::uint64_t>(goal.at("target"))};
+                if (schema == 2) {
+                    const auto binding = goal.at("binding");
+                    if (!binding.value.is_null()) {
+                        binding.object({"fact_type", "subject", "input"});
+                        const auto input = binding.at("input");
+                        if (!input.value.is_string() || (input.value.get<std::string>() != "quantity" && input.value.get<std::string>() != "one"))
+                            input.fail(Error::rule, "expected input quantity or one");
+                        o.binding = quests::ObjectiveBinding{positive<std::uint32_t>(binding.at("fact_type")),
+                            positive<std::uint32_t>(binding.at("subject")), input.value.get<std::string>() == "one" ?
+                            quests::FactInput::one : quests::FactInput::quantity};
+                    }
+                }
                 const auto* handler = registry.find(o.type);
                 if (!handler) goal.at("type").fail(Error::rule, "unregistered objective type");
                 if (!handler->validate(o, 0)) goal.fail(Error::rule, "objective rule/version does not accept initial progress 0");

@@ -28,13 +28,13 @@
 
 公共头：[bundle.hpp](include/designer/configuration/bundle.hpp)。JSON 类型不出现在公共 API；固定版本依赖与许可证见 [third_party](../../../third_party/nlohmann_json/README.md)。当前源码/CMake 集成，不提供安装包。
 
-## 文件格式 v1
+## 基础文件格式（v1/v2）
 
-完整可运行样例见 [game.json](../../../examples/configuration/game.json)。所有字段必填；四张表允许为空，但表内每个商品价格、商品奖励、任务目标列表和任务奖励不能为空。下列正整数均必须使用整数字面量，拒绝 `1.0`、`1e0`、负数、零、字符串和布尔值。
+v1 完整可运行样例见 [game.json](../../../examples/configuration/game.json)。所有字段必填；四张表允许为空，但表内每个商品价格、商品奖励、任务目标列表和任务奖励不能为空。下列正整数均必须使用整数字面量，拒绝 `1.0`、`1e0`、负数、零、字符串和布尔值。
 
 | 位置 | 字段及含义 |
 | --- | --- |
-| 根对象 | `schema_version: 1`、`content_version: uint64`、`items`、`currencies`、`products`、`quests` |
+| 根对象 | `schema_version: 1 或 2`、`content_version: uint64`、`items`、`currencies`、`products`、`quests` |
 | items[] | `id: uint32`、`max_stack: uint32` |
 | currencies[] | `id: uint32`、`max_balance: uint64` |
 | products[] | `id`、`version`（uint32）、`available`（bool）、`unit_cost`、`unit_reward` |
@@ -52,7 +52,7 @@
 - 检查价格及所有奖励引用的物品/货币存在，包括下架商品。
 - 内置目标类型 `1` 为计数、`2` 为标记，规则版本均为 1；标记 target 必须为 1。自定义处理器先注册到 `ObjectiveRegistry`，再传入加载器；文件仅选择类型与参数，不能定义新算法。
 - 等级条件目前只有 minimum_level；完成策略仅 all。添加新数据不需要改业务代码；增加 OR/分阶段等规则仍需实现。
-- 玩法适配器负责把可信事实映射到目标，加载器不推断“哪个物品或事件推进哪个任务”。
+- v1 由玩法适配器手动映射目标；v2 可通过目标 binding 声明精确匹配，详情见下文。
 - 引用有效不代表某个玩家一定能完成操作。余额上限、购买数量缩放溢出、背包容量等仍由业务执行检查；本步不计算经济可达性。
 
 上限：输入 4 MiB，JSON 解析深度最大 32（根容器算第 1 层），物品 4096、货币 1024、商品 4096、任务 128，每任务目标 32，价格/奖励的每个资产子列表 64，标题 128 UTF-8 字节。包级上限不改变领域原有 API 的容量。超过 uint64 的整数不会经浮点近似后接受。
@@ -89,4 +89,21 @@ ctest --test-dir build -R configuration --output-on-failure
 
 校验命令成功退出码 0，数据错误 1，用法错误 2，可由 CI/构建脚本调用；没有自动扫描全仓库配置。命令使用默认目标注册表，自定义游戏需自行接入处理器。集成示例只操作临时内存玩家：提供所选商品的一份初始价格，购买、按所选任务目标模拟输入、领奖并重放。它不是实际玩法事件绑定实现；不合适的商品/奖励组合可能因容量或余额失败。
 
-本步不支持 Excel/CSV、热更新、拆分文件包、配置签名、存档规则迁移或编辑器。完整取舍与实际验证见 [开发步骤 001](development/001-json-bundle-and-validation.md)。
+当前不支持 Excel/CSV、热更新、拆分文件包、配置签名、存档规则迁移或编辑器。完整取舍与实际验证见 [开发步骤 001](development/001-json-bundle-and-validation.md)。
+
+## 目标绑定格式 v2
+
+加载器继续接受 v1。使用 `schema_version: 2` 时，每个目标都必须显式提供 `binding`：没有绑定写 `null`，有绑定写下列对象。
+
+```json
+{
+  "id": 10, "type": 1, "rule_version": 1, "target": 3,
+  "binding": {"fact_type": 100, "subject": 1001, "input": "quantity"}
+}
+```
+
+`fact_type` 与 `subject` 是 uint32 正整数；`input` 只能是 `"quantity"` 或 `"one"`。未知字段、缺失 binding、负数/浮点/字符串假 null 均拒绝。v1 目标不允许 binding 字段，避免旧格式静默承载新行为。两种包版本与 content_version、任务版本、规则版本分别独立。
+
+绑定类型与对象是游戏接入方的编号约定，不自动检查物品外键，也不增加具体“拾取/交互”枚举。配置声明只决定路由；任意输入最终仍须目标处理器接受，例如标记目标使用 quantity 时，事实数量大于 1 会让整个投递失败。原奖励、价格跨表校验保持不变。
+
+[bindings.json](../../../examples/configuration/bindings.json) 是 v2 样例，[game.json](../../../examples/configuration/game.json) 保留 v1 回归；`designer_config_check` 可校验两者。配置驱动事实投递、保存和恢复见 [示例](../../../examples/configuration/facts.cpp) 与 [开发步骤 002](development/002-objective-binding-schema.md)。

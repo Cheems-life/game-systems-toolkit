@@ -53,5 +53,38 @@ int main() {
         if (success) break;
     }
     CHECK(success);
+    // 新路由/关闭边界在候选中分配失败时，也不能提前提交。
+    auto bound = [] {
+        auto definition = task();
+        definition.objectives[0].binding = quest::ObjectiveBinding{100, 10, quest::FactInput::quantity};
+        definition.objectives[1].binding = quest::ObjectiveBinding{200, 7, quest::FactInput::one};
+        return std::make_unique<player_api::Player>(products(), quest::QuestCatalog({definition}),
+            quest::default_objectives(), make_economy().clone());
+    };
+    auto bound_active = [&] { auto p = bound(); CHECK(p->accept(1, {5, 0}) == quest::Error::none); return p; };
+    sweep(bound_active, [](player_api::Player& p) { return p.observe({1, 100, 10, 3}).error == quest::Error::none; });
+    auto bound_ready = [&] {
+        auto p = bound_active(); CHECK(p->observe({1, 100, 10, 3}).error == quest::Error::none);
+        CHECK(p->observe({2, 200, 7, 1}).error == quest::Error::none); return p;
+    };
+    sweep(bound_ready, [](player_api::Player& p) { return p.claim({1, 1, 1}).error == quest::Error::none; });
+    auto bound_source = bound_ready(); CHECK(bound_source->claim({1, 1, 1}).error == quest::Error::none);
+    CHECK(bound_source->observe({3, 100, 10, 9}).error == quest::Error::none);
+    const auto frozen = bound_source->snapshot();
+    sweep(bound, [&](player_api::Player& p) { return p.restore(frozen) == quest::Error::none; });
+    for (bool encoding : {true, false}) {
+        std::string encoded; CHECK(player_api::encode_archive(frozen, encoded) == player_api::ArchiveError::none);
+        bool done = false;
+        for (long budget = 0; budget < 6000; ++budget) {
+            std::string output = "keep"; player_api::PlayerSnapshot target; const auto old = target; remaining = budget;
+            try {
+                const auto error = encoding ? player_api::encode_archive(frozen, output) : player_api::decode_archive(encoded, target);
+                remaining = -1; CHECK(error == player_api::ArchiveError::none);
+                CHECK(encoding ? output == encoded : equal(target, frozen)); done = true;
+            } catch (const std::bad_alloc&) { remaining = -1; CHECK(output == "keep" && equal(old, target)); }
+            if (done) break;
+        }
+        CHECK(done);
+    }
     std::cout << "Allocation failure sweeps preserve task, shared assets, records and codec outputs\n";
 }

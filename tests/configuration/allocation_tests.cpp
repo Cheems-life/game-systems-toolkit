@@ -17,8 +17,12 @@ int main() {
     auto current = c::decode(bytes, registry).bundle; CHECK(current);
     const auto* original = current.get();
     const auto bad = replace(bytes, "\"item\": 1001", "\"item\": 9999");
-    for (const auto& input : std::vector<std::string>{bytes, bad, "{", "{\"x\":1,\"x\":2}"}) {
-        const bool valid = input == bytes;
+    auto v2 = replace(bytes, "\"schema_version\": 1", "\"schema_version\": 2");
+    v2 = replace(v2, "\"target\": 3", "\"target\": 3, \"binding\": {\"fact_type\":100,\"subject\":1001,\"input\":\"quantity\"}");
+    v2 = replace(v2, "\"target\": 1}", "\"target\": 1, \"binding\": null}");
+    v2 = replace(v2, "\"target\": 10", "\"target\": 10, \"binding\": null");
+    for (const auto& input : std::vector<std::string>{bytes, v2, bad, "{", "{\"x\":1,\"x\":2}"}) {
+        const bool valid = input == bytes || input == v2;
         bool finished = false;
         for (long budget = 0; budget < 6000; ++budget) {
             remaining = budget;

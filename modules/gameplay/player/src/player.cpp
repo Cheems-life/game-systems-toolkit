@@ -39,6 +39,15 @@ namespace designer::player
             state_.swap(candidate);
         return result;
     }
+    quests::EventResult Player::observe(const quests::GameplayFact &fact)
+    {
+        auto candidate = clone_state();
+        const auto result = candidate->quests.observe(fact);
+        if (result.error == quests::Error::none && !result.replayed)
+            state_.swap(candidate);
+        return result;
+    }
+
     commerce::PurchaseResult Player::purchase(const commerce::PurchaseRequest &request)
     {
         auto prepared = state_->purchases.prepare(products_, *state_->economy, request);
@@ -66,7 +75,14 @@ namespace designer::player
     }
     quests::Error Player::prepare_claimed(ClaimPreparationContext &context)
     {
-        context.candidate.quests.quests_.at(context.request.quest).claimed = true;
+        auto& book = context.candidate.quests;
+        auto& quest = book.quests_.at(context.request.quest);
+        quest.claimed = true;
+        for (const auto& objective : quest.definition.objectives)
+            if (objective.binding) {
+                quest.fact_until = book.events_.empty() ? 0 : book.events_.rbegin()->first;
+                break;
+            }
         return quests::Error::none;
     }
     quests::Error Player::prepare_receipt(ClaimPreparationContext &context)

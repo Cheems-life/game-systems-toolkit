@@ -100,3 +100,5 @@
 玩家跨系统协调位于独立 [玩家模块](modules/gameplay/player/README.md)，任务核心不再承担购买与完整玩家存档。
 
 配置驱动入口见 [配置模块](modules/foundation/configuration/README.md)：物品、货币、商品和任务可从同一个 JSON 包加载并完成跨表校验。第三方代码按 [自身许可证](third_party/nlohmann_json/LICENSE.MIT) 使用，不受上面的工程代码许可证待定说明影响。
+
+任务已支持配置驱动的可信事实绑定，见 [绑定样例](examples/configuration/bindings.json) 与 [任务说明](modules/gameplay/quests/README.md)。完整玩家存档写 v2、兼容读取 v1；配置也继续支持旧 v1。

@@ -35,7 +35,7 @@ int main() {
     reject("{\"items\": [],}", c::Error::syntax);
     reject("{/*comment*/}", c::Error::syntax);
     reject("[]", c::Error::structure);
-    reject(replace(valid, "\"schema_version\": 1", "\"schema_version\": 2"), c::Error::unsupported_version, "$.schema_version");
+    reject(replace(valid, "\"schema_version\": 1", "\"schema_version\": 3"), c::Error::unsupported_version, "$.schema_version");
     reject(replace(valid, "\"items\": [", "\"itmes\": ["), c::Error::structure, "$.itmes");
     reject(replace(valid, "\"max_stack\": 20", "\"max_stack\": 20, \"extra\": 1"), c::Error::structure);
     reject(replace(valid, "\"max_stack\": 20", "\"max_stack\": 20, \"max_stack\": 10"), c::Error::duplicate);

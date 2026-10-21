@@ -8,10 +8,12 @@
 namespace designer::configuration::detail {
 struct Failure { Diagnostic diagnostic; };
 // 仅供本加载器使用的树；深度受限，容器析构不另建堆栈、不申请新内存。
+struct InvalidNumber {};
 struct Value {
     using Array = std::vector<Value>;
     using Object = std::map<std::string, Value>;
-    std::variant<std::monostate, bool, std::uint64_t, std::string, Array, Object> data;
+    std::variant<std::monostate, InvalidNumber, bool, std::uint64_t, std::string, Array, Object> data;
+    bool is_null() const { return std::holds_alternative<std::monostate>(data); }
     bool is_object() const { return std::holds_alternative<Object>(data); }
     bool is_array() const { return std::holds_alternative<Array>(data); }
     bool is_string() const { return std::holds_alternative<std::string>(data); }
@@ -30,9 +32,9 @@ public:
     bool null() override { next(); return true; }
     bool boolean(bool b) override { next().data = b; return true; }
     // 非正整数/浮点数保留为非 uint 类型，结构校验可在准确字段位置报错。
-    bool number_integer(number_integer_t) override { next(); return true; }
+    bool number_integer(number_integer_t) override { next().data = InvalidNumber{}; return true; }
     bool number_unsigned(number_unsigned_t n) override { next().data = n; return true; }
-    bool number_float(number_float_t, const string_t&) override { next(); return true; }
+    bool number_float(number_float_t, const string_t&) override { next().data = InvalidNumber{}; return true; }
     bool string(string_t& text) override { next().data = std::move(text); return true; }
     bool binary(binary_t&) override { fail(Error::structure, "binary JSON is unsupported"); }
     bool start_object(std::size_t) override { return start(true); }

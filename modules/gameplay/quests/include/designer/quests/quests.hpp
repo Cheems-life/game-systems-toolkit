@@ -49,17 +49,41 @@ namespace designer::quests
     // 负责计算是否满足条件，结果把正常不满足和数据错误分开
     [[nodiscard]] ConditionResult evaluate(ConditionSpec spec, PlayerReadContext context) noexcept;
 
+    // 编号含义由可信玩法接入层约定，任务模块不定义“拾取/击杀”等业务类型。
+    using FactTypeId = std::uint32_t;
+    enum class FactInput : std::uint32_t { quantity = 1, one = 2 };
+    struct ObjectiveBinding {
+        FactTypeId fact_type;
+        std::uint32_t subject;
+        FactInput input;
+    };
+    inline bool operator==(const ObjectiveBinding& a, const ObjectiveBinding& b) noexcept {
+        return a.fact_type == b.fact_type && a.subject == b.subject && a.input == b.input;
+    }
+    struct GameplayFact {
+        EventId id;
+        FactTypeId type;
+        std::uint32_t subject;
+        std::uint64_t quantity;
+    };
+    inline bool operator==(const GameplayFact& a, const GameplayFact& b) noexcept {
+        return a.id == b.id && a.type == b.type && a.subject == b.subject && a.quantity == b.quantity;
+    }
+    [[nodiscard]] bool valid_fact(const GameplayFact&) noexcept;
+    [[nodiscard]] bool valid_binding(const ObjectiveBinding&) noexcept;
+
     struct ObjectiveDefinition
     {
         ObjectiveId id;
         ObjectiveTypeId type;               // 目标采用哪一种进度规则
         std::uint32_t rule_version;         // 目标规则的版本
         std::uint64_t target;               // 完成要求
+        std::optional<ObjectiveBinding> binding = std::nullopt; // 接取时随目标冻结
     };
 
     inline bool operator==(const ObjectiveDefinition &a, const ObjectiveDefinition &b) noexcept
     {
-        return a.id == b.id && a.type == b.type && a.rule_version == b.rule_version && a.target == b.target;
+        return a.id == b.id && a.type == b.type && a.rule_version == b.rule_version && a.target == b.target && a.binding == b.binding;
     }
 
     // Numeric-state v1 extension contract. Handlers are immutable, deterministic and side-effect free.
@@ -174,11 +198,12 @@ namespace designer::quests
         EventId accepted_after;
         std::vector<std::uint64_t> progress; // Aligned with sorted objective IDs.
         bool claimed = false;
+        EventId fact_until = 0; // 有绑定的任务领奖时保存最大已处理序号；其他情况为 0。
     };
 
     inline bool operator==(const AcceptedQuest &a, const AcceptedQuest &b) noexcept
     {
-        return a.definition == b.definition && a.accepted_after == b.accepted_after && a.progress == b.progress && a.claimed == b.claimed;
+        return a.definition == b.definition && a.accepted_after == b.accepted_after && a.progress == b.progress && a.claimed == b.claimed && a.fact_until == b.fact_until;
     }
 
     // 给某个任务中的某个目标，提供一次进度更新输入
@@ -196,10 +221,11 @@ namespace designer::quests
     {
         EventId id;
         std::vector<ObjectiveUpdate> updates;
+        std::optional<GameplayFact> fact = std::nullopt; // 保存原始内容，重放不能重新匹配。
     };
     inline bool operator==(const ProgressEvent &a, const ProgressEvent &b) noexcept
     {
-        return a.id == b.id && a.updates == b.updates;
+        return a.id == b.id && a.updates == b.updates && a.fact == b.fact;
     }
     struct EventResult
     {
@@ -256,6 +282,8 @@ namespace designer::quests
         [[nodiscard]] Error accept(QuestId id, PlayerReadContext context);
 
         [[nodiscard]] EventResult apply(const ProgressEvent &event);
+
+        [[nodiscard]] EventResult observe(const GameplayFact &fact);
 
         [[nodiscard]] const AcceptedQuest *accepted(QuestId id) const noexcept;
 

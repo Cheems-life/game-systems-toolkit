@@ -35,3 +35,8 @@ add_executable(designer_config_example configuration/main.cpp)
 target_link_libraries(designer_config_example PRIVATE designer::configuration designer::player)
 designer_enable_warnings(designer_config_example)
 set_target_properties(designer_config_check designer_config_example PROPERTIES CXX_EXTENSIONS OFF)
+
+add_executable(designer_quest_facts_example configuration/facts.cpp)
+target_link_libraries(designer_quest_facts_example PRIVATE designer::configuration designer::player designer::persistence)
+set_target_properties(designer_quest_facts_example PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_quest_facts_example)

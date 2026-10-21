@@ -16,7 +16,7 @@ namespace designer::player
 
     [[nodiscard]] const char *archive_error_name(ArchiveError) noexcept;
 
-    // DQSTARCH v1, bounded LE with FNV-1a integrity check (not authentication).
+    // DQSTARCH writes v2, reads v1/v2; bounded LE with FNV-1a integrity check (not authentication).
     // Structural validation here; registered objective rules and progress reconstruction in Player::restore.
     // Output remains unchanged on reported failures and allocation exceptions.
 

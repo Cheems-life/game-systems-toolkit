@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 资源管理 | 待开发 | [记录](../modules/foundation/assets/development/README.md) |
 | 音频 | 待开发 | [记录](../modules/foundation/audio/development/README.md) |
-| 配置与数据定义 | 第一版 JSON 启动加载与跨表校验 | [记录](../modules/foundation/configuration/development/README.md) |
+| 配置与数据定义 | JSON v1/v2 加载、绑定及跨表校验 | [记录](../modules/foundation/configuration/development/README.md) |
 | 运行时与模块生命周期 | 已有实现记录 | [记录](../modules/foundation/core/development/README.md) |
 | 日志与诊断 | 待开发 | [记录](../modules/foundation/diagnostics/development/README.md) |
 | 事件与消息 | 待开发 | [记录](../modules/foundation/events/development/README.md) |
@@ -29,7 +29,7 @@
 | 背包与物品 | 已有实现记录 | [记录](../modules/gameplay/inventory/development/README.md) |
 | 掉落与随机奖励 | 待开发 | [记录](../modules/gameplay/loot/development/README.md) |
 | 成长与解锁 | 待开发 | [记录](../modules/gameplay/progression/development/README.md) |
-| 任务与目标 | 第一版目标、任务及共享玩家实现 | [记录](../modules/gameplay/quests/development/README.md) |
+| 任务与目标 | 第一版目标、冻结事实绑定及任务进度 | [记录](../modules/gameplay/quests/development/README.md) |
 | 账号与身份 | 待开发 | [记录](../modules/services/accounts/development/README.md) |
 | 数据分析 | 待开发 | [记录](../modules/services/analytics/development/README.md) |
 | 商店与支付 | 游戏内商城已实现，支付待开发 | [记录](../modules/services/commerce/development/README.md) |
@@ -40,4 +40,4 @@
 | 网络与同步 | 待开发 | [记录](../modules/services/networking/development/README.md) |
 | 平台与发行适配 | 待开发 | [记录](../modules/services/platform/development/README.md) |
 | 社交与组队 | 待开发 | [记录](../modules/services/social/development/README.md) |
-| 玩家业务协调 | 实验性，独立模块已提取 | [记录](../modules/gameplay/player/development/README.md) |
+| 玩家业务协调 | 实验性，事实投递与 v1/v2 存档 | [记录](../modules/gameplay/player/development/README.md) |

@@ -14,7 +14,22 @@ int main() {
     CHECK(fixture.quests.quests.size() == 1 && fixture.quests.quests[0].progress[0] == 2);
     CHECK(fixture.commerce.economy.balances.at(1) == 500 && fixture.quests.events[0].id == 1);
     std::string fixed;
-    CHECK(player_api::encode_archive(fixture, fixed) == player_api::ArchiveError::none && fixed == golden);
+    CHECK(player_api::encode_archive(fixture, fixed) == player_api::ArchiveError::none && static_cast<unsigned char>(fixed[8]) == 2);
+
+    player_api::PlayerSnapshot migrated;
+    CHECK(player_api::decode_archive(fixed, migrated) == player_api::ArchiveError::none && equal(fixture, migrated));
+    CHECK(!migrated.quests.quests[0].definition.objectives[0].binding && !migrated.quests.events[0].fact);
+
+    eco::Wallet legacy_wallet(eco::CurrencyCatalog({{1, 1000}}));
+    auto legacy_assets = std::make_unique<eco::Economy>(std::move(legacy_wallet),
+        std::vector<eco::Container>{{1, inv::Inventory(1, inv::ItemCatalog({{10, 10}}))}});
+    auto current_definition = task(); current_definition.objectives[0].binding = quest::ObjectiveBinding{100, 10, quest::FactInput::quantity};
+    player_api::Player legacy(commerce::ProductCatalog({}), quest::QuestCatalog({current_definition}), quest::default_objectives(), std::move(legacy_assets));
+    CHECK(legacy.restore(fixture) == quest::Error::none);
+    CHECK(!legacy.quests().accepted(1)->definition.objectives[0].binding); // 不从当前配置补旧任务绑定。
+    CHECK(legacy.observe({2, 100, 10, 1}).error == quest::Error::none && legacy.quests().accepted(1)->progress[0] == 2);
+    CHECK(legacy.apply({3, {{1, 10, 1}}}).error == quest::Error::none);
+    CHECK(legacy.claim({99, 1, 1}).error == quest::Error::none && legacy.quests().accepted(1)->fact_until == 0);
 
     auto p = player(); ready(p);
     CHECK(p.purchase({1, 100, 1, 1}).error == commerce::Error::none);
@@ -33,7 +48,7 @@ int main() {
     }
     auto corrupt = bytes; corrupt[20] ^= 1;
     CHECK(player_api::decode_archive(corrupt, decoded) == player_api::ArchiveError::checksum_mismatch && equal(before, decoded));
-    corrupt = bytes; corrupt[8] = 2;
+    corrupt = bytes; corrupt[8] = 3;
     CHECK(player_api::decode_archive(corrupt, decoded) == player_api::ArchiveError::unsupported_version && equal(before, decoded));
     corrupt = bytes; corrupt.insert(corrupt.end() - 8, 'x'); reseal(corrupt);
     CHECK(player_api::decode_archive(corrupt, decoded) == player_api::ArchiveError::malformed && equal(before, decoded));

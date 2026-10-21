@@ -1,5 +1,5 @@
 # The task core does not link commerce; the player coordinator composes both business modules.
-add_library(designer_quest_core STATIC src/objectives.cpp src/quests.cpp)
+add_library(designer_quest_core STATIC src/objectives.cpp src/quests.cpp src/facts.cpp)
 add_library(designer::quest_core ALIAS designer_quest_core)
 target_compile_features(designer_quest_core PUBLIC cxx_std_17)
 target_include_directories(designer_quest_core PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)

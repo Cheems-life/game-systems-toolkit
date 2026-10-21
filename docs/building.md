@@ -91,3 +91,13 @@ ctest --test-dir build -R configuration --output-on-failure
 ```
 
 链接 `designer::configuration`；需要共享玩家协调再链接 `designer::player`。固定 JSON 依赖只在适配器内部使用，不暴露第三方头文件路径。校验命令只读文件、不创建玩家，失败返回非零退出码，可手动接入构建/CI。JSON 样例同时覆盖新增商品与任务，规则见 [配置模块](../modules/foundation/configuration/README.md)。
+
+事实绑定示例（首条替换指定示例存档）：
+
+```sh
+./build/examples/designer_config_check examples/configuration/bindings.json
+./build/examples/designer_quest_facts_example examples/configuration/bindings.json build/facts-demo.sav
+./build/examples/designer_quest_facts_example examples/configuration/bindings.json build/facts-demo.sav --load
+```
+
+配置读取 v1/v2；完整玩家存档写 v2、兼容读 v1。新增核心路由测试只链接 designer::quest_core；保存/加载 fixture 在 UNIX 且开启示例时运行。

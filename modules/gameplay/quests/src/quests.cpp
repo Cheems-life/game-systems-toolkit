@@ -1,3 +1,4 @@
+#include "fact_routing.hpp"
 #include <utility>
 #include <designer/quests/quests.hpp>
 #include <algorithm>
@@ -16,7 +17,8 @@ namespace designer::quests
         // 整理并校验事件
         Error normalize_event(ProgressEvent &event)
         {
-            if (event.id == 0 || event.updates.size() > max_updates)
+            if (event.id == 0 || event.updates.size() > max_updates ||
+                (event.fact && (!valid_fact(*event.fact) || event.fact->id != event.id)))
                 return Error::invalid_update;
             std::sort(event.updates.begin(), event.updates.end(), update_less);
             for (std::size_t i = 0; i < event.updates.size(); ++i)
@@ -207,6 +209,12 @@ namespace designer::quests
         if (events_.size() >= event_limit_)
             return {Error::event_history_full};
 
+        if (event.fact) {
+            std::vector<ObjectiveUpdate> expected;
+            if (detail::route_fact(*event.fact, quests_, false, expected) != Error::none || expected != event.updates)
+                return {Error::invalid_update};
+        }
+
         // 复制候选状态
         auto candidate_quests = quests_;
         auto candidate_events = events_;
@@ -264,6 +272,12 @@ namespace designer::quests
                 if (quest.progress[i] > quest.definition.objectives[i].target ||
                     !registry_.find(quest.definition.objectives[i].type)->validate(quest.definition.objectives[i], quest.progress[i]))
                     return Error::invalid_snapshot;
+            const bool bound = detail::has_bindings(quest.definition);
+            if ((!quest.claimed || !bound) && quest.fact_until != 0)
+                return Error::invalid_snapshot;
+            if (quest.claimed && bound && quest.fact_until != 0 && (snapshot.events.empty() ||
+                quest.fact_until > snapshot.events.back().id))
+                return Error::invalid_snapshot;
             quests.emplace(quest.definition.id, quest);     // 放入临时任务表
         }
 
@@ -280,15 +294,24 @@ namespace designer::quests
             if (event.id <= previous_event || normalize_event(canonical) != Error::none || !(canonical == event))
                 return Error::invalid_snapshot;
             previous_event = event.id;
+            if (event.fact) {
+                std::vector<ObjectiveUpdate> expected;
+                if (detail::route_fact(*event.fact, quests, true, expected) != Error::none || expected != event.updates)
+                    return Error::invalid_snapshot;
+            }
             for (const auto &update : event.updates)
             {
                 const auto found = reconstructed.find(update.quest);
-                if (found == reconstructed.end() || advance(found->second, update, event.id, registry_) != Error::none)
+                if (found == reconstructed.end() || (found->second.claimed && detail::has_bindings(found->second.definition) &&
+                    event.id > found->second.fact_until) || advance(found->second, update, event.id, registry_) != Error::none)
                     return Error::invalid_snapshot;
             }
             events.emplace(event.id, event);
         }
 
+        for (const auto &entry : quests)
+            if (entry.second.fact_until != 0 && events.count(entry.second.fact_until) == 0)
+                return Error::invalid_snapshot;
         for (const auto &entry : quests)
             if (entry.second.progress != reconstructed.at(entry.first).progress)
                 return Error::invalid_snapshot;

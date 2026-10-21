@@ -43,6 +43,8 @@ namespace designer::player
 
         [[nodiscard]] quests::EventResult apply(const quests::ProgressEvent &event);
 
+        [[nodiscard]] quests::EventResult observe(const quests::GameplayFact &fact); // 匹配冻结绑定并统一推进
+
         [[nodiscard]] commerce::PurchaseResult purchase(const commerce::PurchaseRequest &request);
 
         [[nodiscard]] ClaimResult claim(const quests::ClaimRequest &request);

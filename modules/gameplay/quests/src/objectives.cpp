@@ -73,7 +73,8 @@ QuestCatalog::QuestCatalog(std::vector<QuestDefinition> definitions) {
         // 整理并检查目标列表
         ObjectiveId previous = 0;
         for (const auto& objective : d.objectives) {
-            if (objective.id <= previous || objective.type == 0 || objective.rule_version == 0 || objective.target == 0)
+            if (objective.id <= previous || objective.type == 0 || objective.rule_version == 0 || objective.target == 0 ||
+                (objective.binding && !valid_binding(*objective.binding)))
                 throw std::invalid_argument("Invalid objective definition");
             previous = objective.id;
         }
