@@ -10,3 +10,5 @@ add_subdirectory(commerce)
 add_subdirectory(quests)
 
 add_subdirectory(configuration)
+
+add_subdirectory(interaction)

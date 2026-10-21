@@ -19,3 +19,5 @@
 - [006：任务核心与玩家协调层分离](006-extract-player-layer.md)：Player 和完整存档已迁移到独立玩家模块。
 
 - [007：可信事实与冻结目标绑定](007-fact-bindings.md)
+
+- [008：向可信协调器提供已知事件边界](008-known-event-boundary.md)

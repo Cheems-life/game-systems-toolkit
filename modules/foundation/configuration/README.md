@@ -24,17 +24,17 @@
 | `decode(bytes, registry, source)` | 从 UTF-8 JSON 字节加载，source 用于诊断 |
 | `load(path, registry)` | 有界读文件后调用同一套校验 |
 
-`designer::configuration` 是当前四个领域的配置适配器，依赖 `designer::quest_core`、`designer::commerce`（传递 economy/inventory），私有依赖 persistence 文件读取及 vendored JSON。目录分类不代表依赖层级；领域模块没有反向依赖配置、JSON 或文件系统。使用一个领域时仍可直接创建自己的 Catalog，不必链接本模块。
+`designer::configuration` 是当前四个领域的配置适配器，依赖 `designer::interaction`、`designer::quest_core`、`designer::commerce`（传递 economy/inventory），私有依赖 persistence 文件读取及 vendored JSON。目录分类不代表依赖层级；领域模块没有反向依赖配置、JSON 或文件系统。使用一个领域时仍可直接创建自己的 Catalog，不必链接本模块。
 
 公共头：[bundle.hpp](include/designer/configuration/bundle.hpp)。JSON 类型不出现在公共 API；固定版本依赖与许可证见 [third_party](../../../third_party/nlohmann_json/README.md)。当前源码/CMake 集成，不提供安装包。
 
-## 基础文件格式（v1/v2）
+## 基础文件格式（v1/v2/v3）
 
 v1 完整可运行样例见 [game.json](../../../examples/configuration/game.json)。所有字段必填；四张表允许为空，但表内每个商品价格、商品奖励、任务目标列表和任务奖励不能为空。下列正整数均必须使用整数字面量，拒绝 `1.0`、`1e0`、负数、零、字符串和布尔值。
 
 | 位置 | 字段及含义 |
 | --- | --- |
-| 根对象 | `schema_version: 1 或 2`、`content_version: uint64`、`items`、`currencies`、`products`、`quests` |
+| 根对象 | `schema_version: 1、2 或 3`、`content_version: uint64`、`items`、`currencies`、`products`、`quests` |
 | items[] | `id: uint32`、`max_stack: uint32` |
 | currencies[] | `id: uint32`、`max_balance: uint64` |
 | products[] | `id`、`version`（uint32）、`available`（bool）、`unit_cost`、`unit_reward` |
@@ -102,8 +102,20 @@ ctest --test-dir build -R configuration --output-on-failure
 }
 ```
 
-`fact_type` 与 `subject` 是 uint32 正整数；`input` 只能是 `"quantity"` 或 `"one"`。未知字段、缺失 binding、负数/浮点/字符串假 null 均拒绝。v1 目标不允许 binding 字段，避免旧格式静默承载新行为。两种包版本与 content_version、任务版本、规则版本分别独立。
+`fact_type` 与 `subject` 是 uint32 正整数；`input` 只能是 `"quantity"` 或 `"one"`。未知字段、缺失 binding、负数/浮点/字符串假 null 均拒绝。v1 目标不允许 binding 字段，避免旧格式静默承载新行为。包结构版本与 content_version、任务版本、规则版本分别独立。
 
 绑定类型与对象是游戏接入方的编号约定，不自动检查物品外键，也不增加具体“拾取/交互”枚举。配置声明只决定路由；任意输入最终仍须目标处理器接受，例如标记目标使用 quantity 时，事实数量大于 1 会让整个投递失败。原奖励、价格跨表校验保持不变。
 
 [bindings.json](../../../examples/configuration/bindings.json) 是 v2 样例，[game.json](../../../examples/configuration/game.json) 保留 v1 回归；`designer_config_check` 可校验两者。配置驱动事实投递、保存和恢复见 [示例](../../../examples/configuration/facts.cpp) 与 [开发步骤 002](development/002-objective-binding-schema.md)。
+
+## 交互表格式 v3
+
+schema_version=3 在原四表上增加必填 interactions 数组（可空），任务目标仍按 v2 显式提供 binding。行字段如下：
+
+```json
+{"id": 7, "version": 1, "enabled": true, "mode": "once", "fact_type": 200}
+```
+
+id/version/fact_type 为 uint32 正整数，enabled 必须 bool，mode 仅 once/repeatable。上限 4096 行，重复 ID、未知字段、缺失列或类型错误沿用首错诊断。v1/v2 不允许该字段，读取为空交互目录。Bundle.interactions() 返回只读领域目录，配置适配器增加对 designer::interaction 的依赖，领域库不反向依赖 JSON。
+
+交互成功的事实 subject=点 ID、quantity=1；fact_type 的含义由游戏约定。任务还可能关注其他事实源，因此不把所有目标 subject 当作交互外键检查。已有点的生命周期不会因改 mode/版本重置，详见 [交互规则](../../../modules/gameplay/interaction/README.md)。完整 v3 样例见 [game.json](../../../examples/interaction/game.json)，取舍和验证见 [步骤 003](development/003-interaction-schema.md)。

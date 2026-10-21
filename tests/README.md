@@ -7,6 +7,7 @@
 ```text
 tests/
 ├── core/          工程冒烟测试
+├── interaction/   检查交互规则、玩家协调、配置、格式与分配失败
 ├── inventory/     背包规则、容器转移与存档格式
 ├── persistence/   文件读写与安全替换
 ├── economy/       经济规则、存档、分配失败及经济辅助头文件
@@ -81,3 +82,18 @@ tests/
 | [configuration/binding_tests.cpp](configuration/binding_tests.cpp) | v1/v2 字段契约、null/非整数区别、枚举和范围诊断、加载后路由。 |
 
 既有 quests/allocation_tests.cpp 扩展事实投递、绑定任务领奖、v2 编解码/恢复逐分配点故障注入；configuration/allocation_tests.cpp 增加 v2 绑定配置路径。facts_demo.save/load 为独立进程 fixture。
+
+世界交互测试：
+
+| 文件 | 主要用途 |
+| --- | --- |
+| [interaction/core_tests.cpp](interaction/core_tests.cpp) | 只链接交互库：配置、启用、一次/重复、请求重放、模式冻结、容量与恢复。 |
+| [interaction/player_tests.cpp](interaction/player_tests.cpp) | 接取/事实边界、序号耗尽、65 项失败后重试、任务失败回滚、共享玩家其他操作保留交互。 |
+| [interaction/archive_tests.cpp](interaction/archive_tests.cpp) | v3 独立样本、交互/事实关联、截断、模式/请求篡改、1500 次字节变异及空目录重放。 |
+| [interaction/archive_golden.hpp](interaction/archive_golden.hpp) | Python struct 独立组装的小端 v3 固定字节，不调用库编码器。 |
+| [interaction/allocation_tests.cpp](interaction/allocation_tests.cpp) | 持续 bad_alloc 注入，覆盖独立簿执行/恢复、玩家交互/恢复、v3 编解码和 v3 配置加载。 |
+| [interaction/configuration_tests.cpp](interaction/configuration_tests.cpp) | JSON v3 严格字段/范围/模式/表上限、v1/v2 空交互目录及实际投递。 |
+| [interaction/test_support.hpp](interaction/test_support.hpp) | 构建交互配置与绑定任务玩家，复用完整状态比较。 |
+| [interaction/CMakeLists.txt](interaction/CMakeLists.txt) | 独立/组合测试依赖及配置检查、save/load fixture。 |
+
+既有任务固定 v1/v2 字节样本继续读取；重新编码预期升级 v3，玩家测试比较包含新增交互快照。旧格式不根据当前配置补交互成功历史。

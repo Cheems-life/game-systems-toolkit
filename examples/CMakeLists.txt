@@ -40,3 +40,8 @@ add_executable(designer_quest_facts_example configuration/facts.cpp)
 target_link_libraries(designer_quest_facts_example PRIVATE designer::configuration designer::player designer::persistence)
 set_target_properties(designer_quest_facts_example PROPERTIES CXX_EXTENSIONS OFF)
 designer_enable_warnings(designer_quest_facts_example)
+
+add_executable(designer_interaction_example interaction/main.cpp)
+target_link_libraries(designer_interaction_example PRIVATE designer::configuration designer::player designer::persistence)
+set_target_properties(designer_interaction_example PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_interaction_example)

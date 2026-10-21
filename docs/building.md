@@ -100,4 +100,15 @@ ctest --test-dir build -R configuration --output-on-failure
 ./build/examples/designer_quest_facts_example examples/configuration/bindings.json build/facts-demo.sav --load
 ```
 
-配置读取 v1/v2；完整玩家存档写 v2、兼容读 v1。新增核心路由测试只链接 designer::quest_core；保存/加载 fixture 在 UNIX 且开启示例时运行。
+配置读取 v1/v2/v3；完整玩家存档写 v3、兼容读 v1/v2。新增核心路由测试只链接 designer::quest_core；保存/加载 fixture 在 UNIX 且开启示例时运行。
+
+世界检查交互示例（首条保存会替换指定示例文件）：
+
+```sh
+./build/examples/designer_config_check examples/interaction/game.json
+./build/examples/designer_interaction_example examples/interaction/game.json build/interaction-demo.sav
+./build/examples/designer_interaction_example examples/interaction/game.json build/interaction-demo.sav --load
+ctest --test-dir build -R interaction --output-on-failure
+```
+
+独立交互规则只链接 designer::interaction；组合任务、交互和资产使用 designer::player。配置读取 v1/v2/v3，完整玩家存档写 v3、读取 v1/v2/v3；保存 fixture 仅在 UNIX 且开启示例时注册。无需引擎或数据库。

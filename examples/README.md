@@ -18,3 +18,5 @@
 `configuration/game.json` 提供物品、货币、商品与任务数据。`configuration/check.cpp` 只校验文件并输出诊断；`configuration/main.cpp` 创建内存玩家，按指定商品/任务 ID 完成购买、进度、领奖和请求重放。原有硬编码示例继续作为独立 API 教材；新示例是四模块配置驱动的统一入口。
 
 `configuration/bindings.json` 是 v2 绑定配置；`configuration/facts.cpp` 演示无需任务 ID 的可信事实投递，一条事实推进两个任务，领奖后排除、冻结绑定、保存后独立进程恢复和原文重放。事实类型/对象编号仅由示例约定；实际游戏需从可信业务成功结果产生事实。
+
+`interaction/game.json` 为 v3 交互配置，`interaction/main.cpp` 演示检查点、每玩家一次/重复、任务日志满失败不消耗、增大预算恢复后用原请求重试、领奖与双进程恢复重放。示例没有引擎距离检测或发物品交互效果。

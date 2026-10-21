@@ -17,7 +17,7 @@ int main() {
     CHECK(golden_snapshot.quests.quests[0].definition.objectives[0].binding->subject == 10);
     CHECK(golden_snapshot.quests.events[0].fact->quantity == 2);
     std::string canonical_golden;
-    CHECK(player_api::encode_archive(golden_snapshot, canonical_golden) == player_api::ArchiveError::none && canonical_golden == fact_golden);
+    CHECK(player_api::encode_archive(golden_snapshot, canonical_golden) == player_api::ArchiveError::none && canonical_golden == fact_golden_v3_empty);
     // 兼容样本的经济容器布局。
     eco::Wallet golden_wallet(eco::CurrencyCatalog({{1, 1000}}));
     auto golden_economy = std::make_unique<eco::Economy>(std::move(golden_wallet),
@@ -40,7 +40,7 @@ int main() {
     CHECK(p.observe({1, 100, 10, 3}).replayed && p.observe({2, 200, 7, 10}).replayed);
     CHECK(p.observe({2, 200, 7, 1}).error == q::Error::event_conflict);
     const auto snapshot = p.snapshot();
-    std::string bytes; CHECK(player_api::encode_archive(snapshot, bytes) == player_api::ArchiveError::none && bytes[8] == 2);
+    std::string bytes; CHECK(player_api::encode_archive(snapshot, bytes) == player_api::ArchiveError::none && bytes[8] == 3);
     player_api::PlayerSnapshot decoded; CHECK(player_api::decode_archive(bytes, decoded) == player_api::ArchiveError::none && equal(snapshot, decoded));
     auto restored = bound_player(); restored.replace_quests(q::QuestCatalog({}));
     CHECK(restored.restore(decoded) == q::Error::none && equal(snapshot, restored.snapshot()));
@@ -83,7 +83,7 @@ int main() {
         if (result != player_api::ArchiveError::none) CHECK(equal(previous, decoded));
         else {
             std::string canonical; CHECK(player_api::encode_archive(decoded, canonical) == player_api::ArchiveError::none);
-            if (static_cast<unsigned char>(corrupt[8]) == 2) CHECK(canonical == corrupt);
+            if (static_cast<unsigned char>(corrupt[8]) == 3) CHECK(canonical == corrupt);
         }
     }
     // 发奖失败不能提前关掉事实匹配；后续仍能接收事实。

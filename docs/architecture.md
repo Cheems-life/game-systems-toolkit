@@ -51,10 +51,12 @@ MMO 的可信端、重复请求与持久化要求从设计阶段记录；可以�
 
 商城依赖经济模块，通过所有权和候选 clone 协调资产与购买意图一起提交。商城重试在查询当前商品前执行，历史回执不受改价/下架影响；商城存档嵌入经济存档并验证回执关联。没有真实支付实现。
 
-任务核心 `designer::quests`（别名 `designer::quest_core`）仅包含处理器、条件与任务簿，不链接商城或玩家模块。独立 `designer::player` 组合任务和商城，拥有唯一 Economy、无资产 PurchaseBook 与 QuestBook，负责整体快照与存档。底层只读取必要上下文，不包含完整 Player；任务保留具体协调器友元前置声明而无反向链接。详见 [玩家模块](../modules/gameplay/player/README.md)。
+任务核心 `designer::quests`（别名 `designer::quest_core`）仅包含处理器、条件与任务簿，不链接商城或玩家模块。独立 `designer::player` 组合任务和商城，拥有唯一 Economy、无资产 PurchaseBook、QuestBook 和 interaction::Book，负责整体快照与存档。底层只读取必要上下文，不包含完整 Player；任务保留具体协调器友元前置声明而无反向链接。详见 [玩家模块](../modules/gameplay/player/README.md)。
 
-玩家准备奖励、领奖标记和回执后一次提交，没有场景/数据库/网络副作用。原 Shop 可独立使用，内部复用 PurchaseBook::prepare；不另创建与 Player 自动同步的钱包。完整存档沿用 DQSTARCH v1，提取只改变源码入口。
+玩家准备奖励、领奖标记和回执后一次提交，没有场景/数据库/网络副作用。原 Shop 可独立使用，内部复用 PurchaseBook::prepare；不另创建与 Player 自动同步的钱包。提取时完整存档沿用 DQSTARCH v1；之后的事实绑定/交互步骤已升级格式，当前写 v3 并兼容读 v1/v2/v3。
 
 配置适配器 `designer::configuration` 依赖当前四种领域目录，私有使用 JSON 与文件读取；领域模块不反向依赖它。加载器先构造完整校验包，再交给应用层创建对象。它处于配置接入层，不因为目录在 foundation 就成为所有领域的底层依赖；本步不改变 Player 内存事务、冻结规则或存档格式。详见 [配置说明](../modules/foundation/configuration/README.md)。
 
 事实路由属于任务接入边界，QuestBook::observe 接收通用类型/对象/数量，不定义具体玩法枚举。绑定放在冻结目标中，原文随事件记录；直接更新和事实共用同一顺序流。Player 只在候选内转发，并为绑定任务领奖记录序号关闭边界。恢复据此重算历史匹配集合；没有把外部发物品和事实投递合成资产事务，相关重试策略仍由可信业务源负责。
+
+世界交互 designer::interaction 是独立无项目库依赖的规则模块。Book 保存每玩家一次/重复模式与成功请求，不读取完整 Player、不调用任务或引擎。Player 组合交互簿与任务候选，分配大于已知接取/事件边界的事实序号，再一起提交。query_interaction 是本地业务提示，任务投递仍可能失败。新格式写 v3、读 v1/v2/v3；没有跨玩家全局世界状态或多人竞争裁决。

@@ -3,6 +3,7 @@
 // 启动配置适配器：JSON 不进入领域层；只有完整校验成功才返回只读配置包。
 #include <designer/commerce/shop.hpp>
 #include <designer/quests/quests.hpp>
+#include <designer/interaction/interaction.hpp>
 #include <filesystem>
 #include <memory>
 #include <optional>
@@ -40,16 +41,18 @@ public:
     [[nodiscard]] const economy::CurrencyCatalog& currencies() const noexcept { return currencies_; }
     [[nodiscard]] const commerce::ProductCatalog& products() const noexcept { return products_; }
     [[nodiscard]] const quests::QuestCatalog& quests() const noexcept { return quests_; }
+    [[nodiscard]] const interaction::Catalog& interactions() const noexcept { return interactions_; }
     [[nodiscard]] const quests::ObjectiveRegistry& objectives() const noexcept { return registry_; }
 private:
     friend LoadResult decode(std::string_view, const quests::ObjectiveRegistry&, std::string_view);
     Bundle(std::uint64_t version, inventory::ItemCatalog items, economy::CurrencyCatalog currencies,
-           commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry);
+           commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry, interaction::Catalog interactions);
     std::uint64_t version_;
     inventory::ItemCatalog items_;
     economy::CurrencyCatalog currencies_;
     commerce::ProductCatalog products_;
     quests::QuestCatalog quests_;
     quests::ObjectiveRegistry registry_;
+    interaction::Catalog interactions_;
 };
 } // namespace designer::configuration

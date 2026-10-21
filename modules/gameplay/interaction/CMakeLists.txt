@@ -1,0 +1,6 @@
+add_library(designer_interaction STATIC src/interaction.cpp)
+add_library(designer::interaction ALIAS designer_interaction)
+target_compile_features(designer_interaction PUBLIC cxx_std_17)
+target_include_directories(designer_interaction PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+set_target_properties(designer_interaction PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+designer_enable_warnings(designer_interaction)

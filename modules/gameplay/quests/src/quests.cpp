@@ -156,6 +156,12 @@ namespace designer::quests
                 result.allowed ? Status::available : Status::locked, result};
     }
 
+    EventId QuestBook::event_cursor() const noexcept {
+        EventId cursor = events_.empty() ? 0 : events_.rbegin()->first;
+        for (const auto& entry : quests_) cursor = std::max(cursor, entry.second.accepted_after);
+        return cursor;
+    }
+
     Error QuestBook::accept(QuestId id, PlayerReadContext context)
     {
         if (accepted(id))
@@ -168,9 +174,7 @@ namespace designer::quests
         if (!view.condition.allowed)
             return Error::condition_denied;
 
-        EventId known_boundary = events_.empty() ? 0 : events_.rbegin()->first;
-        for (const auto &entry : quests_)
-            known_boundary = std::max(known_boundary, entry.second.accepted_after);
+        const auto known_boundary = event_cursor();
         if (context.event_cursor < known_boundary)
             return Error::invalid_context;
         if (quests_.size() >= max_quests)

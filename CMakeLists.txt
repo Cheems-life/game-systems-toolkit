@@ -20,6 +20,7 @@ add_subdirectory(modules/gameplay/inventory)
 add_subdirectory(modules/gameplay/economy)
 add_subdirectory(modules/services/commerce)
 add_subdirectory(modules/gameplay/quests)
+add_subdirectory(modules/gameplay/interaction)
 add_subdirectory(modules/gameplay/player)
 add_subdirectory(modules/foundation/configuration)
 

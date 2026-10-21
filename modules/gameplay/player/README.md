@@ -6,12 +6,13 @@
 
 ```text
 designer::player
+  ├── designer::interaction（独立交互规则）
   ├── designer::quests（任务核心，也可用 designer::quest_core）
   └── designer::commerce
         └── designer::economy → designer::inventory
 ```
 
-Player 持有唯一 Economy、无资产的 PurchaseBook 和 QuestBook。购买、领奖和整体恢复通过同一候选状态提交。领域模块不包含 Player 头文件，不链接玩家模块；任务头仅前置声明玩家协调器，并授予这一具体类友元权限，保留受控领奖准备访问，不形成链接循环。
+Player 持有唯一 Economy、无资产的 PurchaseBook、QuestBook 和 interaction::Book。购买、领奖和整体恢复通过同一候选状态提交。领域模块不包含 Player 头文件，不链接玩家模块；任务头仅前置声明玩家协调器，并授予这一具体类友元权限，保留受控领奖准备访问，不形成链接循环。
 
 | 类型 | 用途 |
 | --- | --- |
@@ -38,7 +39,7 @@ CMake 链接 `designer::player`；写文件再链接 `designer::persistence`。�
 
 源码迁移：旧 `designer/quests/player.hpp`、`designer/quests/archive.hpp` 改为 `designer/player/player.hpp`、`designer/player/archive.hpp`；Player、ClaimResult、PlayerSnapshot 和完整玩家编码 API 改用 `designer::player` 命名空间；完整集成链接目标从 `designer::quests` 改为 `designer::player`。不提供旧头文件转发，避免任务模块继续隐式带入高层依赖。
 
-提取协调器时曾保留 DQSTARCH v1 字节格式；本次事实绑定扩展改为写 v2、兼容读 v1，详见下文。历史 v1 格式记录见 [任务步骤 005](../quests/development/005-player-save-and-restore.md)。当前商品/任务配置不回写冻结历史。内存提交与文件保存仍是两个边界，不提供数据库事务、多线程、网络副作用、自动存档或防回滚保证。
+提取协调器时曾保留 DQSTARCH v1 字节格式；事实绑定步骤曾升级为 v2；当前世界交互扩展写 v3，读取 v1/v2/v3，详见下文。历史 v1 格式记录见 [任务步骤 005](../quests/development/005-player-save-and-restore.md)。当前商品/任务配置不回写冻结历史。内存提交与文件保存仍是两个边界，不提供数据库事务、多线程、网络副作用、自动存档或防回滚保证。
 
 现有集成示例保留 `designer_quests_example` 名称与 `examples/quests` 路径；集成测试保留 `tests/quests` 路径，用于持续回归，不影响模块归属。运行方式见 [任务说明](../quests/README.md)。
 
@@ -51,7 +52,7 @@ CMake 链接 `designer::player`；写文件再链接 `designer::persistence`。�
 
 `Player::observe(quests::GameplayFact)` 把可信事实交给候选 QuestBook，成功后交换一次玩家状态，失败保留所有资产和任务。领取带绑定的任务时，同一候选内保存 `AcceptedQuest::fact_until`，与发奖、已领奖标记、凭证一起提交。它记录已处理到的最大事件序号，空历史为 0；只用于历史路由重建，不是现实时间或外部世界时间。
 
-现在编码输出 **DQSTARCH v2**，解码读取 v1/v2。v1 缺失字段解释为“目标无绑定、事件无原始事实、fact_until 为 0”，不会根据新配置自动改写旧任务。读取后再次保存升级为 v2，旧程序无法读取；本模块不提供写回 v1 或磁盘备份。
+事实绑定步骤曾输出 **DQSTARCH v2**；当前交互步骤已升级为 v3，读取 v1/v2/v3，详见下文。v1 缺失字段解释为“目标无绑定、事件无原始事实、fact_until 为 0”，不会根据新配置自动改写旧任务。读取后再次保存升级为当前 v3，旧程序无法读取；本模块不提供写回 v1 或磁盘备份。
 
 相对 v1，v2 的字段顺序增量如下，均为小端：
 
@@ -68,3 +69,17 @@ CMake 链接 `designer::player`；写文件再链接 `designer::persistence`。�
 ```
 
 第一条只替换指定示例存档。第二条使用空当前任务/商品目录恢复冻结历史并重放。详细设计及验证见 [步骤 002](development/002-fact-delivery-and-archive-v2.md)。
+
+## 世界交互与存档 v3
+
+Player 现在额外持有独立 interaction::Book 和当前交互目录。构造函数在原 event_limit、purchase_limit 后追加交互 Catalog（默认空）和 interaction_limit（默认 256），旧源码调用仍有效。新入口为 query_interaction、interact、interactions 只读查询及 replace_interactions。
+
+interact 先查冻结成功记录；新请求检查本地交互规则和事实序号溢出，随后在候选内执行交互，再 observe 固定事实，准备结果后一次提交。任务拒绝时返回 interaction::Error::fact_rejected 和 quest_error，交互没有消耗。query 是本地提示，不预运行任务处理器，实际执行仍可能因任务日志满/匹配超限失败。
+
+事件序号为 QuestBook.event_cursor()+1；cursor 包括成功事件和全部接取边界。交互请求 ID 与经济请求 ID 是独立域，但生成事实与外部直接更新/事实共用同一事件序号空间。交互本身无资产效果；任务奖励仍经原 claim 入口领取。
+
+**当前写 DQSTARCH v3，读 v1/v2/v3。** v3 保留 v2 所有字段，在领奖列表之后、外层校验之前追加：交互数 u32，随后每条 request_id u64、point u32、version u32、mode u32（once=1、repeatable=2）、fact_type u32、event_id u64。仍为小端/FNV-1a/16 MiB。旧格式补空交互记录，下次保存升级 v3；旧读取端不能读取 v3。
+
+结构编解码和完整恢复都校验每条交互凭证对应同 ID、类型、对象=point、数量=1 的原始任务事实，且交互簿内部满足请求/模式/一次性约束。历史恢复不使用当前交互目录。允许外部事实没有交互凭证，因此这些关联检查不是认证，也不能保证恶意删除归属记录可被识别。
+
+独立 Book.execute 提交与任务 observe 不是同一个事务；只有 Player 候选将二者组合。没有数据库、多线程或外部场景回调保证。新增模块边界、使用方式见 [交互模块](../interaction/README.md)，设计与验证见 [步骤 003](development/003-interaction-and-archive-v3.md)。

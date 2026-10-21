@@ -2,6 +2,7 @@
 
 #include <designer/quests/quests.hpp>
 #include <designer/commerce/shop.hpp>
+#include <designer/interaction/interaction.hpp>
 
 // 把任务、商城购买和经济资产组织在一起，保证跨系统操作保持一致
 
@@ -16,10 +17,18 @@ namespace designer::player
         bool replayed = false;
     };
 
+    struct InteractionResult {
+        interaction::Error error = interaction::Error::none;
+        quests::Error quest_error = quests::Error::none;
+        std::optional<interaction::Receipt> receipt = std::nullopt;
+        bool replayed = false;
+    };
+
     struct PlayerSnapshot
     {
         commerce::Snapshot commerce; // The ONLY economic snapshot; purchases and claims link to its receipts.
         quests::BookSnapshot quests;
+        interaction::Snapshot interactions = {};
     };
 
     // Coordinates one authoritative player state. No callbacks or external effects during preparation.
@@ -28,7 +37,8 @@ namespace designer::player
     public:
         Player(commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
                std::unique_ptr<economy::Economy> economy, std::size_t event_limit = 256,
-               std::size_t purchase_limit = 256);
+               std::size_t purchase_limit = 256, interaction::Catalog interactions = interaction::Catalog({}),
+               std::size_t interaction_limit = 256);
 
         Player(const Player &) = delete;
         Player &operator=(const Player &) = delete;
@@ -47,6 +57,11 @@ namespace designer::player
 
         [[nodiscard]] commerce::PurchaseResult purchase(const commerce::PurchaseRequest &request);
 
+        [[nodiscard]] interaction::View query_interaction(interaction::PointId point) const noexcept;
+        [[nodiscard]] InteractionResult interact(const interaction::Request& request);
+        [[nodiscard]] const interaction::Book& interactions() const noexcept;
+        void replace_interactions(interaction::Catalog catalog) noexcept;
+
         [[nodiscard]] ClaimResult claim(const quests::ClaimRequest &request);
 
         void replace_products(commerce::ProductCatalog products) noexcept;
@@ -63,6 +78,7 @@ namespace designer::player
             std::unique_ptr<economy::Economy> economy;
             commerce::PurchaseBook purchases;
             quests::QuestBook quests;
+            interaction::Book interactions;
         };
 
         struct ClaimPreparationContext
@@ -83,6 +99,7 @@ namespace designer::player
         [[nodiscard]] std::unique_ptr<State> clone_state() const;
 
         commerce::ProductCatalog products_;
+        interaction::Catalog interactions_;
         std::unique_ptr<State> state_;
     };
 } // namespace designer::player

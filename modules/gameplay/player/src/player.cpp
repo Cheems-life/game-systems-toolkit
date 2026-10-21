@@ -1,6 +1,8 @@
 #include <utility>
 #include <designer/player/player.hpp>
 #include <array>
+#include <algorithm>
+#include <limits>
 #include <set>
 #include <stdexcept>
 #include <type_traits>
@@ -9,16 +11,16 @@ namespace designer::player
 {
     static_assert(std::is_nothrow_move_constructible<ClaimResult>::value, "Claim return must not allocate after commit");
     Player::Player(commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
-                   std::unique_ptr<economy::Economy> economy, std::size_t event_limit, std::size_t purchase_limit)
-        : products_(std::move(products)), state_(std::make_unique<State>(State{std::move(economy),
-                                                                               commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit)}))
+                   std::unique_ptr<economy::Economy> economy, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit)
+        : products_(std::move(products)), interactions_(std::move(interactions)), state_(std::make_unique<State>(State{std::move(economy),
+                                                                               commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit)}))
     {
         if (!state_->economy)
             throw std::invalid_argument("Player requires an economy");
     }
     std::unique_ptr<Player::State> Player::clone_state() const
     {
-        return std::make_unique<State>(State{state_->economy->clone(), state_->purchases, state_->quests});
+        return std::make_unique<State>(State{state_->economy->clone(), state_->purchases, state_->quests, state_->interactions});
     }
     const economy::Economy &Player::economy() const noexcept { return *state_->economy; }
     const quests::QuestBook &Player::quests() const noexcept { return state_->quests; }
@@ -53,10 +55,40 @@ namespace designer::player
         auto prepared = state_->purchases.prepare(products_, *state_->economy, request);
         if (prepared.result.error != commerce::Error::none || prepared.result.replayed)
             return std::move(prepared.result);
-        auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book), state_->quests});
+        auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book), state_->quests, state_->interactions});
         state_.swap(candidate);
         return std::move(prepared.result);
     }
+    const interaction::Book& Player::interactions() const noexcept { return state_->interactions; }
+    interaction::View Player::query_interaction(interaction::PointId point) const noexcept {
+        auto view = state_->interactions.query(interactions_, point);
+        if (view.allowed && state_->quests.event_cursor() == std::numeric_limits<quests::EventId>::max())
+            return {false, interaction::Error::event_id_exhausted};
+        return view;
+    }
+    void Player::replace_interactions(interaction::Catalog catalog) noexcept { interactions_.swap(catalog); }
+    InteractionResult Player::interact(const interaction::Request& request) {
+        if (request.request_id == 0 || request.point == 0) return {interaction::Error::invalid_request};
+        if (const auto* prior = state_->interactions.receipt(request.request_id)) {
+            if (!(prior->request == request)) return {interaction::Error::request_conflict};
+            return {interaction::Error::none, quests::Error::none, *prior, true};
+        }
+        const auto view = query_interaction(request.point);
+        if (!view.allowed) return {view.reason};
+        const auto event = state_->quests.event_cursor() + 1; // query 已检查溢出；包括已知接取边界。
+        auto candidate = clone_state();
+        const auto result = candidate->interactions.execute(interactions_, request, event);
+        if (result.error != interaction::Error::none) return {result.error};
+        const auto& receipt = *result.receipt;
+        const auto delivered = candidate->quests.observe({receipt.event_id, receipt.fact_type, request.point, 1});
+        if (delivered.error != quests::Error::none || delivered.replayed)
+            return {interaction::Error::fact_rejected, delivered.replayed ? quests::Error::event_conflict : delivered.error};
+        InteractionResult output{interaction::Error::none, quests::Error::none, receipt, false};
+        static_assert(std::is_nothrow_move_constructible<InteractionResult>::value, "Return must not allocate after commit");
+        state_.swap(candidate);
+        return output;
+    }
+
     quests::Error Player::prepare_rewards(ClaimPreparationContext &context)
     {
         const auto &request = context.request;
@@ -127,14 +159,15 @@ namespace designer::player
     void Player::replace_quests(quests::QuestCatalog catalog) { state_->quests.replace_catalog(std::move(catalog)); }
     PlayerSnapshot Player::snapshot() const
     {
-        return {{state_->economy->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot()};
+        return {{state_->economy->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot(), state_->interactions.snapshot()};
     }
     quests::Error Player::restore(const PlayerSnapshot &snapshot)
     {
         auto candidate = clone_state();
         if (candidate->economy->restore(snapshot.commerce.economy) != economy::Error::none ||
             candidate->purchases.restore(snapshot.commerce) != commerce::Error::none ||
-            candidate->quests.restore(snapshot.quests) != quests::Error::none)
+            candidate->quests.restore(snapshot.quests) != quests::Error::none ||
+            candidate->interactions.restore(snapshot.interactions) != interaction::Error::none)
             return quests::Error::invalid_snapshot;
         std::map<economy::RequestId, const economy::Receipt *> receipts;
         std::set<economy::RequestId> purchases;
@@ -146,6 +179,13 @@ namespace designer::player
         {
             const auto found = receipts.find(claim.request.request_id);
             if (found == receipts.end() || !(*found->second == claim.settlement) || purchases.count(claim.request.request_id))
+                return quests::Error::invalid_snapshot;
+        }
+        for (const auto& receipt : snapshot.interactions) {
+            const auto found = std::lower_bound(snapshot.quests.events.begin(), snapshot.quests.events.end(), receipt.event_id,
+                [](const auto& event, quests::EventId id) { return event.id < id; });
+            const quests::GameplayFact expected{receipt.event_id, receipt.fact_type, receipt.request.point, 1};
+            if (found == snapshot.quests.events.end() || found->id != receipt.event_id || !found->fact || !(*found->fact == expected))
                 return quests::Error::invalid_snapshot;
         }
         state_.swap(candidate);

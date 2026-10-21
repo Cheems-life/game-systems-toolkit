@@ -77,7 +77,7 @@ namespace designer::player
         bool valid(const PlayerSnapshot &snapshot)
         {
             const auto &book = snapshot.quests;
-            if (book.quests.size() > quests::max_quests || book.events.size() > quests::max_events || book.claims.size() > quests::max_quests)
+            if (book.quests.size() > quests::max_quests || book.events.size() > quests::max_events || book.claims.size() > quests::max_quests || snapshot.interactions.size() > interaction::max_history)
                 return false;
             std::map<quests::QuestId, const quests::AcceptedQuest *> quests;
             quests::QuestId previous = 0;
@@ -131,6 +131,14 @@ namespace designer::player
                 if (quest.fact_until > event_id) return false;
                 if (quest.fact_until != 0 && std::none_of(book.events.begin(), book.events.end(),
                     [&](const auto& e) { return e.id == quest.fact_until; })) return false;
+            }
+            interaction::Book interaction_validator(interaction::max_history);
+            if (interaction_validator.restore(snapshot.interactions) != interaction::Error::none) return false;
+            for (const auto& receipt : snapshot.interactions) {
+                const auto found = std::lower_bound(book.events.begin(), book.events.end(), receipt.event_id,
+                    [](const auto& event, quests::EventId id) { return event.id < id; });
+                const quests::GameplayFact expected{receipt.event_id, receipt.fact_type, receipt.request.point, 1};
+                if (found == book.events.end() || found->id != receipt.event_id || !found->fact || !(*found->fact == expected)) return false;
             }
             std::map<economy::RequestId, const economy::Receipt *> ledger;
             std::set<economy::RequestId> purchases, requests;
@@ -218,7 +226,7 @@ namespace designer::player
     }
     ArchiveError encode_archive(const PlayerSnapshot &snapshot, std::string &output)
     {
-        if (snapshot.quests.quests.size() > quests::max_quests || snapshot.quests.events.size() > quests::max_events || snapshot.quests.claims.size() > quests::max_quests)
+        if (snapshot.quests.quests.size() > quests::max_quests || snapshot.quests.events.size() > quests::max_events || snapshot.quests.claims.size() > quests::max_quests || snapshot.interactions.size() > interaction::max_history)
             return ArchiveError::too_large;
         if (!valid(snapshot))
             return ArchiveError::malformed;
@@ -229,7 +237,7 @@ namespace designer::player
         if (encoded != commerce::ArchiveError::none)
             return ArchiveError::malformed;
         std::string bytes(magic);
-        put(bytes, 2, 4);
+        put(bytes, 3, 4);
         put(bytes, nested.size(), 4);
         bytes += nested;
         put(bytes, snapshot.quests.quests.size(), 4);
@@ -289,6 +297,15 @@ namespace designer::player
             put(bytes, claim.request.destination, 4);
             put(bytes, claim.settlement.sequence, 8);
         }
+        put(bytes, snapshot.interactions.size(), 4);
+        for (const auto& receipt : snapshot.interactions) {
+            put(bytes, receipt.request.request_id, 8);
+            put(bytes, receipt.request.point, 4);
+            put(bytes, receipt.version, 4);
+            put(bytes, static_cast<std::uint32_t>(receipt.mode), 4);
+            put(bytes, receipt.fact_type, 4);
+            put(bytes, receipt.event_id, 8);
+        }
         put(bytes, checksum(bytes), 8);
         if (bytes.size() > archive_max_bytes)
             return ArchiveError::too_large;
@@ -305,7 +322,7 @@ namespace designer::player
         std::uint64_t version = 0, size = 0;
         if (!header.get(version, 4) || !header.get(size, 4))
             return ArchiveError::malformed;
-        if (version != 1 && version != 2)
+        if (version != 1 && version != 2 && version != 3)
             return ArchiveError::unsupported_version;
         Reader footer(bytes.substr(bytes.size() - 8));
         std::uint64_t hash = 0;
@@ -341,7 +358,7 @@ namespace designer::player
             d.policy = static_cast<quests::CompletionPolicy>(policy);
             d.title = std::string(title);
             quest.claimed = claimed == 1;
-            if (version == 2 && !reader.get(quest.fact_until, 8)) return ArchiveError::malformed;
+            if (version >= 2 && !reader.get(quest.fact_until, 8)) return ArchiveError::malformed;
             std::size_t objectives = 0;
             if (!reader.count(quests::max_objectives, objectives))
                 return ArchiveError::malformed;
@@ -352,7 +369,7 @@ namespace designer::player
                 if (!reader.u32(definition.id) || !reader.u32(definition.type) || !reader.u32(definition.rule_version) ||
                     !reader.get(definition.target, 8) || !reader.get(progress, 8))
                     return ArchiveError::malformed;
-                if (version == 2) {
+                if (version >= 2) {
                     std::uint64_t present = 0;
                     if (!reader.get(present, 1) || present > 1) return ArchiveError::malformed;
                     if (present == 1) {
@@ -386,7 +403,7 @@ namespace designer::player
                     return ArchiveError::malformed;
                 event.updates.push_back(update);
             }
-            if (version == 2) {
+            if (version >= 2) {
                 std::uint64_t present = 0;
                 if (!reader.get(present, 1) || present > 1) return ArchiveError::malformed;
                 if (present == 1) {
@@ -414,6 +431,15 @@ namespace designer::player
             if (found == receipts.end() || found->second->sequence != sequence)
                 return ArchiveError::malformed;
             candidate.quests.claims.push_back({request, *found->second});
+        }
+        if (version == 3) {
+            if (!reader.count(interaction::max_history, count)) return ArchiveError::malformed;
+            for (std::size_t i = 0; i < count; ++i) {
+                interaction::Receipt receipt{}; std::uint32_t mode = 0;
+                if (!reader.get(receipt.request.request_id, 8) || !reader.u32(receipt.request.point) || !reader.u32(receipt.version) ||
+                    !reader.u32(mode) || !reader.u32(receipt.fact_type) || !reader.get(receipt.event_id, 8)) return ArchiveError::malformed;
+                receipt.mode = static_cast<interaction::Mode>(mode); candidate.interactions.push_back(receipt);
+            }
         }
         if (!reader.finished() || !valid(candidate))
             return ArchiveError::malformed;

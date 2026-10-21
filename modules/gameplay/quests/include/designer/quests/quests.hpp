@@ -285,6 +285,8 @@ namespace designer::quests
 
         [[nodiscard]] EventResult observe(const GameplayFact &fact);
 
+        [[nodiscard]] EventId event_cursor() const noexcept; // 已处理事件和接取边界的最大值
+
         [[nodiscard]] const AcceptedQuest *accepted(QuestId id) const noexcept;
 
         void replace_catalog(QuestCatalog catalog);

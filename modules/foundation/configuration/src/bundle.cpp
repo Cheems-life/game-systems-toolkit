@@ -122,9 +122,9 @@ const char* error_name(Error e) noexcept {
     return "unrecognized_error";
 }
 Bundle::Bundle(std::uint64_t version, inventory::ItemCatalog items, economy::CurrencyCatalog currencies,
-               commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry)
+               commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry, interaction::Catalog interactions)
     : version_(version), items_(std::move(items)), currencies_(std::move(currencies)),
-      products_(std::move(products)), quests_(std::move(quests)), registry_(std::move(registry)) {}
+      products_(std::move(products)), quests_(std::move(quests)), registry_(std::move(registry)), interactions_(std::move(interactions)) {}
 
 LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& registry, std::string_view source) {
     try {
@@ -135,10 +135,15 @@ LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& regis
         if (!nlohmann::json::sax_parse(bytes.begin(), bytes.end(), &sax))
             throw Failure{{Error::syntax, std::string(source), "$", {}, "JSON parser stopped"}};
         const Cursor root{sax.root, "$", source};
-        root.object({"schema_version", "content_version", "items", "currencies", "products", "quests"});
+        if (!root.value.is_object()) root.fail(Error::structure, "expected object");
+        if (!root.value.contains("schema_version")) {
+            throw Failure{{Error::structure, std::string(source), "$.schema_version", {}, "missing field"}};
+        }
         const auto schema = positive<std::uint32_t>(root.at("schema_version"));
-        if (schema != 1 && schema != 2)
-            root.at("schema_version").fail(Error::unsupported_version, "only schema_version 1 and 2 are supported");
+        if (schema != 1 && schema != 2 && schema != 3)
+            root.at("schema_version").fail(Error::unsupported_version, "only schema_version 1, 2 and 3 are supported");
+        if (schema == 3) root.object({"schema_version", "content_version", "items", "currencies", "products", "quests", "interactions"});
+        else root.object({"schema_version", "content_version", "items", "currencies", "products", "quests"});
         const auto version = positive<std::uint64_t>(root.at("content_version"));
         std::vector<inventory::ItemDefinition> item_defs;
         auto table = root.at("items"); table.array(max_items);
@@ -199,7 +204,7 @@ LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& regis
                 const auto goal_id = positive<std::uint32_t>(goal.at("id")); unique(goal_ids, goal_id, goal.at("id"));
                 quests::ObjectiveDefinition o{goal_id, positive<std::uint32_t>(goal.at("type")),
                     positive<std::uint32_t>(goal.at("rule_version")), positive<std::uint64_t>(goal.at("target"))};
-                if (schema == 2) {
+                if (schema >= 2) {
                     const auto binding = goal.at("binding");
                     if (!binding.value.is_null()) {
                         binding.object({"fact_type", "subject", "input"});
@@ -220,9 +225,25 @@ LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& regis
             reward_references(row.at("reward"), items, currencies);
             quest_defs.push_back(std::move(d));
         }
+        std::vector<interaction::Definition> interaction_defs;
+        if (schema == 3) {
+            const auto points = root.at("interactions"); points.array(interaction::max_points); ids.clear();
+            for (std::size_t i = 0; i < points.value.size(); ++i) {
+                auto row = points.record(i); row.object({"id", "version", "enabled", "mode", "fact_type"});
+                const auto id = positive<std::uint32_t>(row.at("id")); row.record_id = id; unique(ids, id, row.at("id"));
+                const auto enabled = row.at("enabled");
+                if (!enabled.value.is_boolean()) enabled.fail(Error::structure, "expected boolean");
+                const auto mode = row.at("mode");
+                if (!mode.value.is_string() || (mode.value.get<std::string>() != "once" && mode.value.get<std::string>() != "repeatable"))
+                    mode.fail(Error::rule, "expected mode once or repeatable");
+                interaction_defs.push_back({id, positive<std::uint32_t>(row.at("version")), enabled.value.get<bool>(),
+                    mode.value.get<std::string>() == "once" ? interaction::Mode::once : interaction::Mode::repeatable,
+                    positive<std::uint32_t>(row.at("fact_type"))});
+            }
+        }
         // 唯一发布点：调用方只能获得校验完成的一整套配置，不存在部分成功。
         return {std::unique_ptr<const Bundle>(new Bundle(version, std::move(items), std::move(currencies),
-            commerce::ProductCatalog(std::move(product_defs)), quests::QuestCatalog(std::move(quest_defs)), registry)), std::nullopt};
+            commerce::ProductCatalog(std::move(product_defs)), quests::QuestCatalog(std::move(quest_defs)), registry, interaction::Catalog(std::move(interaction_defs)))), std::nullopt};
     } catch (const Failure& failure) {
         return {nullptr, failure.diagnostic};
     }
