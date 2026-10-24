@@ -1,0 +1,16 @@
+# 全流程；请配合一个尚不存在的新存档路径运行
+status
+shop
+buy 100 1
+quests
+accept 1
+inspect 7
+talk 5001
+next
+choose 20
+finish
+quests
+claim 1
+status
+save
+quit

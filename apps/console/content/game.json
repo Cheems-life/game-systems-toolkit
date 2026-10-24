@@ -1,0 +1,131 @@
+{
+  "schema_version": 3,
+  "content_version": 2026102501,
+  "items": [
+    {
+      "id": 1001,
+      "max_stack": 20
+    },
+    {
+      "id": 1002,
+      "max_stack": 10
+    }
+  ],
+  "currencies": [
+    {
+      "id": 1,
+      "max_balance": 100000
+    },
+    {
+      "id": 2,
+      "max_balance": 1000
+    }
+  ],
+  "products": [
+    {
+      "id": 100,
+      "version": 1,
+      "available": true,
+      "unit_cost": {
+        "currencies": [
+          {
+            "currency": 1,
+            "amount": 100
+          }
+        ]
+      },
+      "unit_reward": {
+        "currencies": [
+          {
+            "currency": 2,
+            "amount": 1
+          }
+        ],
+        "items": [
+          {
+            "item": 1001,
+            "quantity": 5
+          }
+        ]
+      }
+    },
+    {
+      "id": 200,
+      "version": 1,
+      "available": true,
+      "unit_cost": {
+        "currencies": [
+          {
+            "currency": 1,
+            "amount": 50
+          }
+        ]
+      },
+      "unit_reward": {
+        "currencies": [],
+        "items": [
+          {
+            "item": 1002,
+            "quantity": 1
+          }
+        ]
+      }
+    }
+  ],
+  "quests": [
+    {
+      "id": 1,
+      "version": 1,
+      "minimum_level": 5,
+      "policy": "all",
+      "title": "出发准备：调查路标并与向导交谈",
+      "objectives": [
+        {
+          "id": 10,
+          "type": 2,
+          "rule_version": 1,
+          "target": 1,
+          "binding": {
+            "fact_type": 400,
+            "subject": 5001,
+            "input": "one"
+          }
+        },
+        {
+          "id": 20,
+          "type": 2,
+          "rule_version": 1,
+          "target": 1,
+          "binding": {
+            "fact_type": 200,
+            "subject": 7,
+            "input": "one"
+          }
+        }
+      ],
+      "reward": {
+        "currencies": [
+          {
+            "currency": 1,
+            "amount": 100
+          }
+        ],
+        "items": [
+          {
+            "item": 1001,
+            "quantity": 2
+          }
+        ]
+      }
+    }
+  ],
+  "interactions": [
+    {
+      "id": 7,
+      "version": 1,
+      "enabled": true,
+      "mode": "once",
+      "fact_type": 200
+    }
+  ]
+}

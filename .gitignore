@@ -21,3 +21,6 @@ Thumbs.db
 .godot/
 # Developer-local CMake settings
 CMakeUserPresets.json
+
+# Local reference-game progress
+/saves/

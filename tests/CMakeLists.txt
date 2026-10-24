@@ -14,3 +14,5 @@ add_subdirectory(configuration)
 add_subdirectory(interaction)
 
 add_subdirectory(dialogue)
+
+add_subdirectory(application)

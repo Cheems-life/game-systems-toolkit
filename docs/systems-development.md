@@ -43,3 +43,7 @@
 | 玩家业务协调 | 实验性，交互/对话/任务协调与 v1..v4 存档 | [记录](../modules/gameplay/player/development/README.md) |
 
 玩家商品目录已外置，交互/对话目录保留；本次迁移见[玩家步骤006](../modules/gameplay/player/development/006-external-product-catalog.md)。
+
+## 应用层
+
+[命令行新手村](../apps/console/README.md)已新增可交互流程；[开发记录](../apps/console/development/001-playable-application.md)说明配置、请求ID、保存和业务模块的组合。

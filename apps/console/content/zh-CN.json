@@ -1,0 +1,12 @@
+{
+  "schema_version": 1,
+  "content_version": 2,
+  "locale": "zh-CN",
+  "texts": {
+    "npc.hello": "你好，旅行者。",
+    "npc.updated": "欢迎回来。这是更新后的问候。",
+    "npc.question": "准备好出发了吗？",
+    "answer.yes": "准备好了。",
+    "answer.again": "请再说一遍。"
+  }
+}

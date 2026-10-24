@@ -10,7 +10,7 @@
 
 ```mermaid
 flowchart TB
-    App["应用装配与业务入口"]
+    App["apps/console/Application：可交互业务入口"]
     P["player：玩家协调 / assets"]
     Q["quests：任务核心"]
     C["commerce：购买与独立商城"]
@@ -454,3 +454,7 @@ Player::State 中资产成员现名为 `assets`，强调它属于当前玩家；
 ## 图示维护（2026-10-24）
 
 本次重新核对全部8张图：模块依赖、成员持有、购买、任务推进、领奖、配置与存档、交互、对话。明确Player::State::assets与外部ProductCatalog，保留interactions_和dialogues_。修正QuestBook.apply_progress_event等实际接口名。仅修改说明，不改变代码；验证本地链接、图块数量与旧称残留，未运行代码测试或声称Mermaid渲染验证。
+
+## 可交互应用入口（2026-10-25）
+
+[新手村应用](../apps/console/README.md)现已实际装配上述模块。Application持有只读Bundle、TextTable、Player、存档路径与本次请求游标，用户命令只调用Player业务接口。具体装配和全过程说明见应用文档。

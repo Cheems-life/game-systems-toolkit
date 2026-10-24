@@ -134,3 +134,7 @@ ctest --test-dir build/sanitized --output-on-failure
 ```
 
 当前 macOS 验证的编译器与测试结果见 [对话步骤记录](../modules/gameplay/dialogue/development/001-dialogue-flow-and-frozen-sessions.md)；以上编译器路径需按实际环境调整。
+
+## 可交互参考应用
+
+应用与单元测试分开，默认启用DESIGNER_BUILD_APPS；见[新手村启动与命令](../apps/console/README.md)。运行 `cmake --build build --target designer_game --parallel` 后执行 `./build/bin/designer_game`。

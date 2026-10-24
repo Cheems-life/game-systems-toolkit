@@ -69,3 +69,7 @@ MMO 的可信端、重复请求与持久化要求从设计阶段记录；可以�
 [架构分析](architecture-review.md) · [成员与函数交互图](architecture-details.md)。
 
 商品目录现由可信应用持有，Player::purchase_product(products, request)只读借用，不再持有products_或提供replace_products。交互与对话目录仍由Player持有，State中的两个Book保存各自运行记录，见[玩家步骤006](../modules/gameplay/player/development/006-external-product-catalog.md)。
+
+## 可运行应用层
+
+`apps/console`提供正式命令行入口designer_game，负责内容装配、命令输入/输出、请求ID和文件保存，领域状态仍由Player维护。见[应用说明](../apps/console/README.md)。这补充统一应用入口，不替代各模块或Godot适配。

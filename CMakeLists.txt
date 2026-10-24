@@ -13,6 +13,8 @@ endif()
 option(DESIGNER_BUILD_EXAMPLES "Build command-line examples" ${DESIGNER_STANDALONE})
 option(DESIGNER_BUILD_TESTS "Build toolkit tests" ${DESIGNER_STANDALONE})
 
+option(DESIGNER_BUILD_APPS "Build interactive reference applications" ${DESIGNER_STANDALONE})
+
 include(cmake/DesignerWarnings.cmake)
 add_subdirectory(modules/foundation/core)
 add_subdirectory(modules/foundation/persistence)
@@ -24,6 +26,10 @@ add_subdirectory(modules/gameplay/interaction)
 add_subdirectory(modules/gameplay/dialogue)
 add_subdirectory(modules/gameplay/player)
 add_subdirectory(modules/foundation/configuration)
+
+if(DESIGNER_BUILD_APPS)
+    add_subdirectory(apps)
+endif()
 
 if(DESIGNER_BUILD_EXAMPLES)
     add_subdirectory(examples)
