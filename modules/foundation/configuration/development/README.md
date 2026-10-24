@@ -10,6 +10,8 @@
 
 - [003：世界交互配置 v3](003-interaction-schema.md)
 
+- [004：独立对话资源、文本键与本地更新边界](004-dialogue-content-loading.md)：拆分加载、文本引用及导表/发布边界。
+
 ## 注释与格式维护
 
 2026-10-24：检查并保留 bundle.cpp 与 json_reader.hpp 的学习注释和格式化修改，using 顺序调整不改变行为。配置示例和测试随玩家/任务 API 更名迁移；普通完整回归 43/43 通过。详细更名与其余验证见 [玩家步骤 004](../../../gameplay/player/development/004-explicit-business-api-names.md)。

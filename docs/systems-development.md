@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | 资源管理 | 待开发 | [记录](../modules/foundation/assets/development/README.md) |
 | 音频 | 待开发 | [记录](../modules/foundation/audio/development/README.md) |
-| 配置与数据定义 | JSON v1/v2/v3、交互表、绑定及跨表校验 | [记录](../modules/foundation/configuration/development/README.md) |
+| 配置与数据定义 | JSON v1/v2/v3、独立对话/语言资源及引用校验 | [记录](../modules/foundation/configuration/development/README.md) |
 | 运行时与模块生命周期 | 已有实现记录 | [记录](../modules/foundation/core/development/README.md) |
 | 日志与诊断 | 待开发 | [记录](../modules/foundation/diagnostics/development/README.md) |
 | 事件与消息 | 待开发 | [记录](../modules/foundation/events/development/README.md) |
@@ -21,7 +21,7 @@
 | 怪物与 NPC AI | 待开发 | [记录](../modules/gameplay/ai/development/README.md) |
 | 战斗与伤害 | 待开发 | [记录](../modules/gameplay/combat/development/README.md) |
 | 合成与生产 | 待开发 | [记录](../modules/gameplay/crafting/development/README.md) |
-| 对话与叙事 | 待开发 | [记录](../modules/gameplay/dialogue/development/README.md) |
+| 对话与叙事 | 实验性流程、冻结会话与存档 | [记录](../modules/gameplay/dialogue/development/README.md) |
 | 货币与奖励：经济系统第一版 | 已有实现记录 | [记录](../modules/gameplay/economy/development/README.md) |
 | 装备与属性 | 待开发 | [记录](../modules/gameplay/equipment/development/README.md) |
 | 抽卡与保底 | 待开发 | [记录](../modules/gameplay/gacha/development/README.md) |
@@ -40,4 +40,4 @@
 | 网络与同步 | 待开发 | [记录](../modules/services/networking/development/README.md) |
 | 平台与发行适配 | 待开发 | [记录](../modules/services/platform/development/README.md) |
 | 社交与组队 | 待开发 | [记录](../modules/services/social/development/README.md) |
-| 玩家业务协调 | 实验性，交互/任务协调与 v1/v2/v3 存档 | [记录](../modules/gameplay/player/development/README.md) |
+| 玩家业务协调 | 实验性，交互/对话/任务协调与 v1..v4 存档 | [记录](../modules/gameplay/player/development/README.md) |

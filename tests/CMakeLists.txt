@@ -12,3 +12,5 @@ add_subdirectory(quests)
 add_subdirectory(configuration)
 
 add_subdirectory(interaction)
+
+add_subdirectory(dialogue)

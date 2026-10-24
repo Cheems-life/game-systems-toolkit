@@ -1,11 +1,11 @@
 # 配置与数据定义
 
-状态：实验性 C++17 启动配置加载与校验实现。支持 JSON 配置物品、货币、商品和任务，独立于引擎。
+状态：实验性 C++17 配置加载与校验实现，另有独立对话/语言资源入口。支持 JSON 配置物品、货币、商品和任务，独立于引擎。
 
 ## 先理解流程
 
 ```text
-一份 game.json（四张表 + 两种包版本）
+一份 game.json（四张基础表，v3 另有交互表）
     ↓ 有界读取与严格 JSON 解析
 类型、范围、重复、领域规则、目标处理器和跨表引用校验
     ↓ 全部通过后返回完整只读 Bundle
@@ -89,7 +89,7 @@ ctest --test-dir build -R configuration --output-on-failure
 
 校验命令成功退出码 0，数据错误 1，用法错误 2，可由 CI/构建脚本调用；没有自动扫描全仓库配置。命令使用默认目标注册表，自定义游戏需自行接入处理器。集成示例只操作临时内存玩家：提供所选商品的一份初始价格，购买、按所选任务目标模拟输入、领奖并重放。它不是实际玩法事件绑定实现；不合适的商品/奖励组合可能因容量或余额失败。
 
-当前不支持 Excel/CSV、热更新、拆分文件包、配置签名、存档规则迁移或编辑器。完整取舍与实际验证见 [开发步骤 001](development/001-json-bundle-and-validation.md)。
+原资产启动包仍不支持拆分或整包热更新；对话资源的独立加载和显式发布见下文。当前没有 Excel/CSV 导表器、配置签名、存档规则迁移或编辑器。完整取舍与实际验证见 [开发步骤 001](development/001-json-bundle-and-validation.md)。
 
 ## 目标绑定格式 v2
 
@@ -119,3 +119,24 @@ schema_version=3 在原四表上增加必填 interactions 数组（可空），�
 id/version/fact_type 为 uint32 正整数，enabled 必须 bool，mode 仅 once/repeatable。上限 4096 行，重复 ID、未知字段、缺失列或类型错误沿用首错诊断。v1/v2 不允许该字段，读取为空交互目录。Bundle.interactions() 返回只读领域目录，配置适配器增加对 designer::interaction 的依赖，领域库不反向依赖 JSON。
 
 交互成功的事实 subject=点 ID、quantity=1；fact_type 的含义由游戏约定。任务还可能关注其他事实源，因此不把所有目标 subject 当作交互外键检查。已有点的生命周期不会因改 mode/版本重置，详见 [交互规则](../../../modules/gameplay/interaction/README.md)。完整 v3 样例见 [game.json](../../../examples/interaction/game.json)，取舍和验证见 [步骤 003](development/003-interaction-schema.md)。
+
+
+## 独立对话和语言资源
+
+本次增加 `designer::dialogue_configuration` 目标和 [dialogue_content.hpp](include/designer/configuration/dialogue_content.hpp)。它只依赖独立 dialogue，私有使用 persistence 和 JSON，不链接旧资产包、任务或商城；原 `designer::configuration` 与 v1/v2/v3 格式保持兼容。
+
+| 接口 | 作用 |
+| --- | --- |
+| decode_dialogue_content / load_dialogue_content | 单份对话图的字节/文件入口，成功返回只读 DialogueContent |
+| decode_dialogue_texts / load_dialogue_texts | 单份语言文本表入口，成功返回只读 TextTable |
+| validate_dialogue_text_references | 发布/显示前检查图引用的全部正文键 |
+
+图根字段全部必填：schema_version=1、content_version（uint64）、dialogue。dialogue 字段为 id、version、entry、completion_fact_type（uint32）、nodes。text 节点为 id/kind="text"/speaker/text_key/next；choice 为 id/kind="choice"/speaker/text_key/options，每选项 id/text_key/next；end 仅 id/kind="end"。示例见 [5001.json](../../../examples/dialogue/5001.json)。图 ID/节点 ID/选项 ID/speaker/版本和跳转均为正整数，适用图规则见 [对话模块](../../gameplay/dialogue/README.md)。
+
+文本根字段 schema_version=1、content_version、locale、texts；texts 为键→UTF-8 正文的对象，示例见 [zh-CN.json](../../../examples/dialogue/zh-CN.json)。locale 为 1..32 字节的 ASCII 字母/数字/短横线标识，不宣称完整 BCP 47 校验；键 1..96 字节，仅字母/数字/点/下划线/短横线；正文 1..4096 UTF-8 字节。每文件最多 512 KiB、文本最多 4096 项、深度 32，沿用严格字段/类型/数字/重复键/UTF-8 和首错诊断。不支持语言回退、复数、格式化或语音资源。
+
+每个入口只同步读取指定文件，不扫描所有资源。各自加载成功不代表图/文本引用匹配，发布前须调用 validate_dialogue_text_references；该接口只检查引用，不比较 content_version 批次。应用自行持有只读资源并安装 Catalog，错误不自动替换旧图。
+
+`Catalog::replace_dialogue_definition` 支持校验后替换单图，进行中的会话保留旧图；Player 的 replace_dialogues 是调用方准备好的完整目录交换，不自动检查旧目录版本。正文的 pin/切换由 UI 决定；存档只存图和会话，正文旧键的跨版本保留需发布者负责。没有自动文件监听、异步缓存、manifest、远程下载、回滚或图/全部语言包原子发布。
+
+Excel 适合编辑源、JSON 适合导出资源；推荐表结构与热更新演进见 [内容流程](../../../docs/content-pipeline.md)，实现选择及验证见 [步骤 004](development/004-dialogue-content-loading.md)。

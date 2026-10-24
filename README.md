@@ -2,7 +2,7 @@
 
 面向游戏开发学习与工程复用的模块化工具包。目标是逐步产出能在明确使用场景中通过商业级验收的实现，适用于不同类型游戏的按需组合。
 
-**当前状态：C++17/CMake 工程骨架可构建，包含库、命令行示例与测试入口；背包、跨容器转移、本地存档、经济事务、游戏内商城、任务系统、检查交互及 JSON 配置加载已提供实验性实现，其他玩法模块尚未实现；尚未经过商业级验证。**
+**当前状态：C++17/CMake 工程骨架可构建，包含库、命令行示例与测试入口；背包、跨容器转移、本地存档、经济事务、游戏内商城、任务系统、检查交互、对话及拆分 JSON 配置加载已提供实验性实现，其他玩法模块尚未实现；尚未经过商业级验证。**
 
 以类 MMO 为参考场景，重点练习系统设计。Godot 后续通过适配层接入，核心库独立于引擎。
 
@@ -101,6 +101,8 @@
 
 配置驱动入口见 [配置模块](modules/foundation/configuration/README.md)：物品、货币、商品和任务可从同一个 JSON 包加载并完成跨表校验。第三方代码按 [自身许可证](third_party/nlohmann_json/LICENSE.MIT) 使用，不受上面的工程代码许可证待定说明影响。
 
-任务已支持配置驱动的可信事实绑定，见 [绑定样例](examples/configuration/bindings.json) 与 [任务说明](modules/gameplay/quests/README.md)。完整玩家存档写 v2、兼容读取 v1；配置也继续支持旧 v1。
+任务已支持配置驱动的可信事实绑定，见 [绑定样例](examples/configuration/bindings.json) 与 [任务说明](modules/gameplay/quests/README.md)。完整玩家存档当前写 v4、兼容读取 v1/v2/v3/v4；基础配置读取 v1/v2/v3。
 
-[世界交互第一版](modules/gameplay/interaction/README.md) 支持每玩家一次/重复检查，并与任务事实在同一候选提交。新配置采用 v3，玩家存档写 v3，旧格式仍可读取。
+[世界交互第一版](modules/gameplay/interaction/README.md) 支持每玩家一次/重复检查，并与任务事实在同一候选提交。基础配置采用 v3，玩家存档当前写 v4，旧格式仍可读取。
+
+[对话第一版](modules/gameplay/dialogue/README.md) 提供文本/选项/结束流程、冻结会话、恢复与任务完成事实。流程和语言资源独立按文件加载；Excel 编辑源、JSON 导出与配置更新的区别见 [内容流程](docs/content-pipeline.md)。

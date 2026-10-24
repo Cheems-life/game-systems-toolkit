@@ -6,13 +6,14 @@
 
 ```text
 designer::player
+  ├── designer::dialogue（独立对话规则与冻结会话）
   ├── designer::interaction（独立交互规则）
   ├── designer::quests（任务核心，也可用 designer::quest_core）
   └── designer::commerce
         └── designer::economy → designer::inventory
 ```
 
-Player 持有唯一 Economy、无资产的 PurchaseBook、QuestBook 和 interaction::Book。购买、领奖和整体恢复通过同一候选状态提交。领域模块不包含 Player 头文件，不链接玩家模块；任务头仅前置声明玩家协调器，并授予这一具体类友元权限，保留受控领奖准备访问，不形成链接循环。
+Player 持有唯一 Economy、无资产的 PurchaseBook、QuestBook、interaction::Book 和 dialogue::Book。购买、领奖和整体恢复通过同一候选状态提交。领域模块不包含 Player 头文件，不链接玩家模块；任务头仅前置声明玩家协调器，并授予这一具体类友元权限，保留受控领奖准备访问，不形成链接循环。
 
 | 类型 | 用途 |
 | --- | --- |
@@ -39,7 +40,7 @@ CMake 链接 `designer::player`；写文件再链接 `designer::persistence`。�
 
 源码迁移：旧 `designer/quests/player.hpp`、`designer/quests/archive.hpp` 改为 `designer/player/player.hpp`、`designer/player/archive.hpp`；Player、ClaimResult、PlayerSnapshot 和完整玩家编码 API 改用 `designer::player` 命名空间；完整集成链接目标从 `designer::quests` 改为 `designer::player`。不提供旧头文件转发，避免任务模块继续隐式带入高层依赖。
 
-提取协调器时曾保留 DQSTARCH v1 字节格式；事实绑定步骤曾升级为 v2；当前世界交互扩展写 v3，读取 v1/v2/v3，详见下文。历史 v1 格式记录见 [任务步骤 005](../quests/development/005-player-save-and-restore.md)。当前商品/任务配置不回写冻结历史。内存提交与文件保存仍是两个边界，不提供数据库事务、多线程、网络副作用、自动存档或防回滚保证。
+提取协调器时曾保留 DQSTARCH v1 字节格式；事实绑定步骤曾升级为 v2；当前对话扩展写 v4，读取 v1/v2/v3/v4，详见下文。历史 v1 格式记录见 [任务步骤 005](../quests/development/005-player-save-and-restore.md)。当前商品/任务配置不回写冻结历史。内存提交与文件保存仍是两个边界，不提供数据库事务、多线程、网络副作用、自动存档或防回滚保证。
 
 现有集成示例保留 `designer_quests_example` 名称与 `examples/quests` 路径；集成测试保留 `tests/quests` 路径，用于持续回归，不影响模块归属。运行方式见 [任务说明](../quests/README.md)。
 
@@ -52,7 +53,7 @@ CMake 链接 `designer::player`；写文件再链接 `designer::persistence`。�
 
 `Player::observe_gameplay_fact(quests::GameplayFact)` 把可信事实交给候选 QuestBook，成功后交换一次玩家状态，失败保留所有资产和任务。领取带绑定的任务时，同一候选内保存 `AcceptedQuest::fact_until`，与发奖、已领奖标记、凭证一起提交。它记录已处理到的最大事件序号，空历史为 0；只用于历史路由重建，不是现实时间或外部世界时间。
 
-事实绑定步骤曾输出 **DQSTARCH v2**；当前交互步骤已升级为 v3，读取 v1/v2/v3，详见下文。v1 缺失字段解释为“目标无绑定、事件无原始事实、fact_until 为 0”，不会根据新配置自动改写旧任务。读取后再次保存升级为当前 v3，旧程序无法读取；本模块不提供写回 v1 或磁盘备份。
+事实绑定步骤曾输出 **DQSTARCH v2**；当前对话步骤已升级为 v4，读取 v1/v2/v3/v4，详见下文。v1 缺失字段解释为“目标无绑定、事件无原始事实、fact_until 为 0”，不会根据新配置自动改写旧任务。读取后再次保存升级为当前 v4，旧程序无法读取；本模块不提供写回 v1 或磁盘备份。
 
 相对 v1，v2 的字段顺序增量如下，均为小端：
 
@@ -78,7 +79,7 @@ execute_interaction 先查冻结成功记录；新请求检查本地交互规则
 
 事件序号为 QuestBook.event_cursor()+1；cursor 包括成功事件和全部接取边界。交互请求 ID 与经济请求 ID 是独立域，但生成事实与外部直接更新/事实共用同一事件序号空间。交互本身无资产效果；任务奖励仍经claim_quest_reward 入口领取。
 
-**当前写 DQSTARCH v3，读 v1/v2/v3。** v3 保留 v2 所有字段，在领奖列表之后、外层校验之前追加：交互数 u32，随后每条 request_id u64、point u32、version u32、mode u32（once=1、repeatable=2）、fact_type u32、event_id u64。仍为小端/FNV-1a/16 MiB。旧格式补空交互记录，下次保存升级 v3；旧读取端不能读取 v3。
+**世界交互步骤引入 DQSTARCH v3；当前写 v4、读 v1/v2/v3/v4，见后文。** v3 保留 v2 所有字段，在领奖列表之后、外层校验之前追加：交互数 u32，随后每条 request_id u64、point u32、version u32、mode u32（once=1、repeatable=2）、fact_type u32、event_id u64。仍为小端/FNV-1a/16 MiB。旧格式补空交互记录，下次保存升级当前 v4；旧读取端不能读取 v4。
 
 结构编解码和完整恢复都校验每条交互凭证对应同 ID、类型、对象=point、数量=1 的原始任务事实，且交互簿内部满足请求/模式/一次性约束。历史恢复不使用当前交互目录。允许外部事实没有交互凭证，因此这些关联检查不是认证，也不能保证恶意删除归属记录可被识别。
 
@@ -96,5 +97,23 @@ execute_interaction 先查冻结成功记录；新请求检查本地交互规则
 | claim_quest_reward | 一次性领取任务奖励 |
 | check_interaction_availability | 检查新交互资格及共享序号上限 |
 | execute_interaction | 执行交互并在候选中投递事实 |
+| execute_dialogue_command | 开始/推进/选择/完成/取消对话，完成时联合投递事实 |
 
-短名接口已移除，源码迁移见 [命名步骤 004](development/004-explicit-business-api-names.md)。参数、失败语义和存档格式均不变。
+短名接口已移除，源码迁移见 [命名步骤 004](development/004-explicit-business-api-names.md)。步骤 004 当时只更名，不改变业务和格式；当前格式增量见后文。
+
+
+## 对话与存档 v4
+
+State 增加 dialogue::Book，当前 dialogue::Catalog 独立保存。构造函数在 interaction_limit 后追加 dialogues（默认空）与 dialogue_limit（默认 256），原调用仍有效。新只读入口 dialogues()，业务入口 execute_dialogue_command，目录交换入口 replace_dialogues。
+
+非完成命令只改变对话状态。finish 在候选里完成会话，按 quests.event_cursor()+1 分配事实序号，以冻结 completion_fact_type、subject=对话 ID、quantity=1 投递事实，准备返回后一起提交。任务拒绝时返回 dialogue::Error::fact_rejected 与 quest_error，会话仍停在原 end 节点，可以原请求重试；取消不产生事实。任务奖励依旧单独 claim_quest_reward，不在对话里硬编码发奖或接取任务。
+
+对话/交互/经济请求 ID 各自去重；所有任务事件和事实共用事件序号。相同对话请求先查原文重放，即使当前目录删除、日志已满或会话结束也可返回旧回执。所有购买/接取/领奖/交互/恢复候选路径都携带对话状态。只读会话视图借用当前状态，任意成功的玩家提交后可能失效。
+
+**当前 DQSTARCH 写 v4，读 v1/v2/v3/v4。** 在 v3 交互列表后、外层 FNV 校验前追加 dialogue_size u32 和独立 DDLGARCH v1 字节段；该段最多 4 MiB，外层仍限 16 MiB。v1..v3 补空对话状态，读取后保存升级 v4；旧程序不能读取新版，无写回旧格式功能。内层图/会话/日志的详细格式见 [对话模块](../dialogue/README.md)。
+
+对话自身通过冻结定义重放命令验证；编解码和 Player::restore 都验证每条完成回执存在同 ID/类型/对象/数量的原始任务事实，并拒绝与交互或另一完成回执占用同一事实。完整恢复再重算任务进度。恢复不读取当前对话目录、不重复场景或网络副作用。允许外部事实没有对话归属，因此校验不是认证，也不保证识别恶意删除全部归属记录。
+
+replace_dialogues 交换的是调用方准备好的完整目录，不自动比较旧版本或合并未提供的图；单图增量请在应用持有的 Catalog 副本调用 replace_dialogue_definition，再整体发布。活动/历史会话仍固定开始版本。图冻结不包括 UI 正文，文本资源版本与旧键保留由接入层负责。
+
+示例见 [examples/dialogue](../../../examples/dialogue/main.cpp)，规则/上限见 [对话模块](../dialogue/README.md)，跨模块选择与验证见 [步骤 005](development/005-dialogue-and-archive-v4.md)。仅保证单线程内存候选提交，文件保存是另一步，无数据库或多线程事务承诺。

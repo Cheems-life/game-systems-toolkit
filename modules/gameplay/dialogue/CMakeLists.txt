@@ -1,0 +1,6 @@
+add_library(designer_dialogue STATIC src/dialogue.cpp src/archive.cpp)
+add_library(designer::dialogue ALIAS designer_dialogue)
+target_compile_features(designer_dialogue PUBLIC cxx_std_17)
+target_include_directories(designer_dialogue PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+set_target_properties(designer_dialogue PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+designer_enable_warnings(designer_dialogue)

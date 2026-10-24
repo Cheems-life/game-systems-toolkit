@@ -100,7 +100,7 @@ ctest --test-dir build -R configuration --output-on-failure
 ./build/examples/designer_quest_facts_example examples/configuration/bindings.json build/facts-demo.sav --load
 ```
 
-配置读取 v1/v2/v3；完整玩家存档写 v3、兼容读 v1/v2。新增核心路由测试只链接 designer::quest_core；保存/加载 fixture 在 UNIX 且开启示例时运行。
+配置读取 v1/v2/v3；完整玩家存档写 v4、兼容读 v1/v2/v3/v4。新增核心路由测试只链接 designer::quest_core；保存/加载 fixture 在 UNIX 且开启示例时运行。
 
 世界检查交互示例（首条保存会替换指定示例文件）：
 
@@ -111,4 +111,26 @@ ctest --test-dir build -R configuration --output-on-failure
 ctest --test-dir build -R interaction --output-on-failure
 ```
 
-独立交互规则只链接 designer::interaction；组合任务、交互和资产使用 designer::player。配置读取 v1/v2/v3，完整玩家存档写 v3、读取 v1/v2/v3；保存 fixture 仅在 UNIX 且开启示例时注册。无需引擎或数据库。
+独立交互规则只链接 designer::interaction；组合任务、交互和资产使用 designer::player。配置读取 v1/v2/v3，完整玩家存档写 v4、读取 v1/v2/v3/v4；保存 fixture 仅在 UNIX 且开启示例时注册。无需引擎或数据库。
+
+
+## 对话与独立资源
+
+```sh
+./build/examples/designer_dialogue_example examples/dialogue build/dialogue-demo.sav
+./build/examples/designer_dialogue_example examples/dialogue build/dialogue-demo.sav --load
+ctest --test-dir build -R dialogue --output-on-failure
+```
+
+首条替换指定示例存档；第二进程恢复冻结流程后选择、完成和领奖。独立规则和字节存档链接 designer::dialogue；独立图/语言加载链接 designer::dialogue_configuration；跨任务提交链接 designer::player；文件另加 designer::persistence。新对话资源各自 schema=1，未升级基础整包格式；当前完整玩家存档为 v4。
+
+可用地址/未定义行为检查构建（需编译器支持）：
+
+```sh
+cmake -S . -B build/sanitized -DCMAKE_BUILD_TYPE=Debug -DCMAKE_CXX_COMPILER=/usr/bin/c++ \
+  '-DCMAKE_CXX_FLAGS=-fsanitize=address,undefined -fno-omit-frame-pointer'
+cmake --build build/sanitized --parallel
+ctest --test-dir build/sanitized --output-on-failure
+```
+
+当前 macOS 验证的编译器与测试结果见 [对话步骤记录](../modules/gameplay/dialogue/development/001-dialogue-flow-and-frozen-sessions.md)；以上编译器路径需按实际环境调整。

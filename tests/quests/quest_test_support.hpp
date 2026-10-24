@@ -14,7 +14,7 @@ inline player_api::Player player(eco::Amount reward = 100, std::size_t event_lim
                          quest::default_objectives(), make_economy(economic_limit, slots).clone(), event_limit);
 }
 inline bool equal(const player_api::PlayerSnapshot& a, const player_api::PlayerSnapshot& b) {
-    return equal(a.commerce, b.commerce) && a.quests == b.quests && a.interactions == b.interactions;
+    return equal(a.commerce, b.commerce) && a.quests == b.quests && a.interactions == b.interactions && a.dialogues == b.dialogues;
 }
 inline void ready(player_api::Player& player, quest::QuestId id = 1, quest::EventId event = 1) {
     CHECK(player.accept_quest(id, {5, event - 1}) == quest::Error::none);

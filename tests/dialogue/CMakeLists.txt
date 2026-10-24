@@ -1,0 +1,25 @@
+# core/configuration 各自验证最小依赖；集成/存档/故障注入运行于独立测试进程。
+add_executable(designer_dialogue_core_tests core_tests.cpp)
+target_link_libraries(designer_dialogue_core_tests PRIVATE designer::dialogue)
+add_executable(designer_dialogue_configuration_tests configuration_tests.cpp)
+target_link_libraries(designer_dialogue_configuration_tests PRIVATE designer::dialogue_configuration)
+foreach(test IN ITEMS player archive allocation)
+    add_executable(designer_dialogue_${test}_tests ${test}_tests.cpp)
+    target_link_libraries(designer_dialogue_${test}_tests PRIVATE designer::player designer::dialogue_configuration)
+endforeach()
+foreach(test IN ITEMS core configuration player archive allocation)
+    designer_enable_warnings(designer_dialogue_${test}_tests)
+    set_target_properties(designer_dialogue_${test}_tests PROPERTIES CXX_EXTENSIONS OFF)
+    target_compile_definitions(designer_dialogue_${test}_tests PRIVATE
+        DESIGNER_DIALOGUE_GRAPH="${PROJECT_SOURCE_DIR}/examples/dialogue/5001.json"
+        DESIGNER_DIALOGUE_GRAPH_V2="${PROJECT_SOURCE_DIR}/examples/dialogue/5001-v2.json"
+        DESIGNER_DIALOGUE_TEXTS="${PROJECT_SOURCE_DIR}/examples/dialogue/zh-CN.json")
+    add_test(NAME designer.dialogue.${test} COMMAND designer_dialogue_${test}_tests)
+endforeach()
+if(DESIGNER_BUILD_EXAMPLES AND UNIX)
+    set(dialogue_args ${PROJECT_SOURCE_DIR}/examples/dialogue ${CMAKE_CURRENT_BINARY_DIR}/dialogue.sav)
+    add_test(NAME designer.dialogue_demo.save COMMAND designer_dialogue_example ${dialogue_args})
+    set_tests_properties(designer.dialogue_demo.save PROPERTIES FIXTURES_SETUP saved_dialogue)
+    add_test(NAME designer.dialogue_demo.load COMMAND designer_dialogue_example ${dialogue_args} --load)
+    set_tests_properties(designer.dialogue_demo.load PROPERTIES FIXTURES_REQUIRED saved_dialogue)
+endif()

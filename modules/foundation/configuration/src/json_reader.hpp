@@ -1,7 +1,10 @@
 #pragma once
 
 // 解析实现细节：借用第三方 SAX 语法解析，构造有界深度、无分配析构的内部树。
-#include <designer/configuration/bundle.hpp>
+#include <designer/configuration/diagnostic.hpp>
+#include <map>
+#include <vector>
+#include <string_view>
 #include <nlohmann/json.hpp>
 #include <variant>
 #include <utility>

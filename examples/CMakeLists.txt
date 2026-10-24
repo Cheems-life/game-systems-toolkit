@@ -45,3 +45,8 @@ add_executable(designer_interaction_example interaction/main.cpp)
 target_link_libraries(designer_interaction_example PRIVATE designer::configuration designer::player designer::persistence)
 set_target_properties(designer_interaction_example PROPERTIES CXX_EXTENSIONS OFF)
 designer_enable_warnings(designer_interaction_example)
+
+add_executable(designer_dialogue_example dialogue/main.cpp)
+target_link_libraries(designer_dialogue_example PRIVATE designer::configuration designer::dialogue_configuration designer::player designer::persistence)
+set_target_properties(designer_dialogue_example PROPERTIES CXX_EXTENSIONS OFF)
+designer_enable_warnings(designer_dialogue_example)

@@ -1,4 +1,5 @@
 #include <utility>
+#include "dialogue_links.hpp"
 #include <designer/player/player.hpp>
 #include <array>
 #include <algorithm>
@@ -11,9 +12,9 @@ namespace designer::player
 {
     static_assert(std::is_nothrow_move_constructible<ClaimResult>::value, "Claim return must not allocate after commit");
     Player::Player(commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
-                   std::unique_ptr<economy::Economy> economy, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit)
-        : products_(std::move(products)), interactions_(std::move(interactions)), state_(std::make_unique<State>(State{std::move(economy),
-                                                                               commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit)}))
+                   std::unique_ptr<economy::Economy> economy, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit, dialogue::Catalog dialogues, std::size_t dialogue_limit)
+        : products_(std::move(products)), interactions_(std::move(interactions)), dialogues_(std::move(dialogues)), state_(std::make_unique<State>(State{std::move(economy),
+                                                                               commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit), dialogue::Book(dialogue_limit)}))
     {
         if (!state_->economy)
             throw std::invalid_argument("Player requires an economy");
@@ -21,7 +22,7 @@ namespace designer::player
 
     std::unique_ptr<Player::State> Player::clone_state() const
     {
-        return std::make_unique<State>(State{state_->economy->clone(), state_->purchases, state_->quests, state_->interactions});
+        return std::make_unique<State>(State{state_->economy->clone(), state_->purchases, state_->quests, state_->interactions, state_->dialogues});
     }
 
     const economy::Economy &Player::economy() const noexcept { return *state_->economy; }
@@ -62,7 +63,7 @@ namespace designer::player
         auto prepared = state_->purchases.prepare(products_, *state_->economy, request);
         if (prepared.result.error != commerce::Error::none || prepared.result.replayed)
             return std::move(prepared.result);
-        auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book), state_->quests, state_->interactions});
+        auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book), state_->quests, state_->interactions, state_->dialogues});
         state_.swap(candidate);
         return std::move(prepared.result);
     }
@@ -93,6 +94,35 @@ namespace designer::player
             return {interaction::Error::fact_rejected, delivered.replayed ? quests::Error::event_conflict : delivered.error};
         InteractionResult output{interaction::Error::none, quests::Error::none, receipt, false};
         static_assert(std::is_nothrow_move_constructible<InteractionResult>::value, "Return must not allocate after commit");
+        state_.swap(candidate);
+        return output;
+    }
+
+    const dialogue::Book& Player::dialogues() const noexcept { return state_->dialogues; }
+    void Player::replace_dialogues(dialogue::Catalog catalog) noexcept { dialogues_.swap(catalog); }
+    DialogueResult Player::execute_dialogue_command(const dialogue::Command& command) {
+        if (!dialogue::valid_dialogue_command(command)) return {dialogue::Error::invalid_command};
+        if (const auto* prior = state_->dialogues.find_dialogue_receipt(command.request_id)) {
+            if (!(prior->command == command)) return {dialogue::Error::request_conflict};
+            return {dialogue::Error::none, quests::Error::none, *prior, true};
+        }
+        quests::EventId event = 0;
+        if (command.action == dialogue::Action::finish) {
+            if (state_->quests.event_cursor() == std::numeric_limits<quests::EventId>::max())
+                return {dialogue::Error::event_id_exhausted};
+            event = state_->quests.event_cursor() + 1;
+        }
+        auto candidate = clone_state();
+        const auto result = candidate->dialogues.execute_dialogue_command(dialogues_, command, event);
+        if (result.error != dialogue::Error::none) return {result.error};
+        if (event) {
+            const auto view = candidate->dialogues.query_dialogue_session(result.receipt->session);
+            const auto delivered = candidate->quests.observe_gameplay_fact({event, view->definition.completion_fact_type, view->definition.id, 1});
+            if (delivered.error != quests::Error::none || delivered.replayed)
+                return {dialogue::Error::fact_rejected, delivered.replayed ? quests::Error::event_conflict : delivered.error};
+        }
+        DialogueResult output{dialogue::Error::none, quests::Error::none, result.receipt, false};
+        static_assert(std::is_nothrow_move_constructible<DialogueResult>::value, "Return must not allocate after commit");
         state_.swap(candidate);
         return output;
     }
@@ -175,7 +205,7 @@ namespace designer::player
 
     PlayerSnapshot Player::snapshot() const
     {
-        return {{state_->economy->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot(), state_->interactions.snapshot()};
+        return {{state_->economy->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot(), state_->interactions.snapshot(), state_->dialogues.snapshot()};
     }
 
     quests::Error Player::restore(const PlayerSnapshot &snapshot)
@@ -184,7 +214,8 @@ namespace designer::player
         if (candidate->economy->restore(snapshot.commerce.economy) != economy::Error::none ||
             candidate->purchases.restore(snapshot.commerce) != commerce::Error::none ||
             candidate->quests.restore(snapshot.quests) != quests::Error::none ||
-            candidate->interactions.restore(snapshot.interactions) != interaction::Error::none)
+            candidate->interactions.restore(snapshot.interactions) != interaction::Error::none ||
+            candidate->dialogues.restore(snapshot.dialogues) != dialogue::Error::none || !detail::valid_dialogue_links(snapshot))
             return quests::Error::invalid_snapshot;
         std::map<economy::RequestId, const economy::Receipt *> receipts;
         std::set<economy::RequestId> purchases;

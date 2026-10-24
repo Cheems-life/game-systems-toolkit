@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "content_version": 2,
+  "dialogue": {
+    "id": 5001,
+    "version": 2,
+    "entry": 1,
+    "completion_fact_type": 400,
+    "nodes": [
+      {
+        "id": 1,
+        "kind": "text",
+        "speaker": 7,
+        "text_key": "npc.updated",
+        "next": 2
+      },
+      {
+        "id": 2,
+        "kind": "choice",
+        "speaker": 7,
+        "text_key": "npc.question",
+        "options": [
+          {
+            "id": 20,
+            "text_key": "answer.yes",
+            "next": 3
+          },
+          {
+            "id": 10,
+            "text_key": "answer.again",
+            "next": 1
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "kind": "end"
+      }
+    ]
+  }
+}

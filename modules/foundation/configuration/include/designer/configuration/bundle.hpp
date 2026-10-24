@@ -1,6 +1,7 @@
 #pragma once
 
 // 启动配置适配器：JSON 不进入领域层；只有完整校验成功才返回只读配置包。
+#include <designer/configuration/diagnostic.hpp>
 #include <designer/commerce/shop.hpp>
 #include <designer/quests/quests.hpp>
 #include <designer/interaction/interaction.hpp>
@@ -11,18 +12,7 @@
 #include <string_view>
 
 namespace designer::configuration {
-inline constexpr std::size_t max_bytes = 4 * 1024 * 1024;
-inline constexpr std::size_t max_depth = 32, max_items = 4096;
-enum class Error { io, syntax, structure, range, duplicate, unsupported_version, reference, rule, limit };
-[[nodiscard]] const char* error_name(Error error) noexcept;
-struct Diagnostic {
-    Error code;
-    std::string source;
-    std::string path;
-    std::optional<std::uint32_t> record_id;
-    std::string message;
-    std::size_t byte = 0; // 语法错误的 1-based 字节位置；0 表示未提供。
-};
+inline constexpr std::size_t max_items = 4096;
 
 class Bundle;
 struct LoadResult {

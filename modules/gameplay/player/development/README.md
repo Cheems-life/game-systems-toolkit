@@ -13,3 +13,5 @@
 - [003：交互、任务事实与完整存档 v3](003-interaction-and-archive-v3.md)
 
 - [004：明确业务接口命名](004-explicit-business-api-names.md)：2026-10-24，当前接口名与迁移说明。
+
+- [005：对话完成事实与玩家格式 v4](005-dialogue-and-archive-v4.md)：对话/任务候选提交、冻结会话存档及旧格式兼容。

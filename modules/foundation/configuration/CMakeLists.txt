@@ -7,3 +7,13 @@ target_include_directories(designer_configuration SYSTEM PRIVATE ${PROJECT_SOURC
 target_link_libraries(designer_configuration PUBLIC designer::quest_core designer::commerce designer::interaction PRIVATE designer::persistence)
 set_target_properties(designer_configuration PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
 designer_enable_warnings(designer_configuration)
+
+# 按需对话/语言资源适配器，保持独立于旧的资产启动包。
+add_library(designer_dialogue_configuration STATIC src/dialogue_content.cpp)
+add_library(designer::dialogue_configuration ALIAS designer_dialogue_configuration)
+target_compile_features(designer_dialogue_configuration PUBLIC cxx_std_17)
+target_include_directories(designer_dialogue_configuration PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>)
+target_include_directories(designer_dialogue_configuration SYSTEM PRIVATE ${PROJECT_SOURCE_DIR}/third_party/nlohmann_json/include)
+target_link_libraries(designer_dialogue_configuration PUBLIC designer::dialogue PRIVATE designer::persistence)
+set_target_properties(designer_dialogue_configuration PROPERTIES CXX_EXTENSIONS OFF POSITION_INDEPENDENT_CODE ON)
+designer_enable_warnings(designer_dialogue_configuration)

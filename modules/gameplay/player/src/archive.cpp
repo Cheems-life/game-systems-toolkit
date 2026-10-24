@@ -1,4 +1,6 @@
 #include <utility>
+#include <designer/dialogue/archive.hpp>
+#include "dialogue_links.hpp"
 #include <designer/player/archive.hpp>
 #include <designer/commerce/archive.hpp>
 #include <set>
@@ -76,6 +78,8 @@ namespace designer::player
         }
         bool valid(const PlayerSnapshot &snapshot)
         {
+            dialogue::Book dialogue_validator(dialogue::max_history);
+            if (dialogue_validator.restore(snapshot.dialogues) != dialogue::Error::none || !detail::valid_dialogue_links(snapshot)) return false;
             const auto &book = snapshot.quests;
             if (book.quests.size() > quests::max_quests || book.events.size() > quests::max_events || book.claims.size() > quests::max_quests || snapshot.interactions.size() > interaction::max_history)
                 return false;
@@ -237,7 +241,7 @@ namespace designer::player
         if (encoded != commerce::ArchiveError::none)
             return ArchiveError::malformed;
         std::string bytes(magic);
-        put(bytes, 3, 4);
+        put(bytes, 4, 4);
         put(bytes, nested.size(), 4);
         bytes += nested;
         put(bytes, snapshot.quests.quests.size(), 4);
@@ -306,6 +310,12 @@ namespace designer::player
             put(bytes, receipt.fact_type, 4);
             put(bytes, receipt.event_id, 8);
         }
+        std::string dialogue_bytes;
+        const auto dialogue_encoded = dialogue::encode_archive(snapshot.dialogues, dialogue_bytes);
+        if (dialogue_encoded == dialogue::ArchiveError::too_large) return ArchiveError::too_large;
+        if (dialogue_encoded != dialogue::ArchiveError::none) return ArchiveError::malformed;
+        put(bytes, dialogue_bytes.size(), 4);
+        bytes += dialogue_bytes;
         put(bytes, checksum(bytes), 8);
         if (bytes.size() > archive_max_bytes)
             return ArchiveError::too_large;
@@ -322,7 +332,7 @@ namespace designer::player
         std::uint64_t version = 0, size = 0;
         if (!header.get(version, 4) || !header.get(size, 4))
             return ArchiveError::malformed;
-        if (version != 1 && version != 2 && version != 3)
+        if (version != 1 && version != 2 && version != 3 && version != 4)
             return ArchiveError::unsupported_version;
         Reader footer(bytes.substr(bytes.size() - 8));
         std::uint64_t hash = 0;
@@ -432,7 +442,7 @@ namespace designer::player
                 return ArchiveError::malformed;
             candidate.quests.claims.push_back({request, *found->second});
         }
-        if (version == 3) {
+        if (version >= 3) {
             if (!reader.count(interaction::max_history, count)) return ArchiveError::malformed;
             for (std::size_t i = 0; i < count; ++i) {
                 interaction::Receipt receipt{}; std::uint32_t mode = 0;
@@ -440,6 +450,11 @@ namespace designer::player
                     !reader.u32(mode) || !reader.u32(receipt.fact_type) || !reader.get(receipt.event_id, 8)) return ArchiveError::malformed;
                 receipt.mode = static_cast<interaction::Mode>(mode); candidate.interactions.push_back(receipt);
             }
+        }
+        if (version >= 4) {
+            std::size_t dialogue_size = 0; std::string_view dialogue_bytes;
+            if (!reader.count(dialogue::archive_max_bytes, dialogue_size) || !reader.slice(dialogue_size, dialogue_bytes) ||
+                dialogue::decode_archive(dialogue_bytes, candidate.dialogues) != dialogue::ArchiveError::none) return ArchiveError::malformed;
         }
         if (!reader.finished() || !valid(candidate))
             return ArchiveError::malformed;
