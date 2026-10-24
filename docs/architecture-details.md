@@ -25,7 +25,7 @@ classDiagram
         -clone_state()
     }
     class PlayerState {
-        +unique_ptr~Economy~ economy
+        +unique_ptr~Economy~ assets
         +PurchaseBook purchases
         +QuestBook quests
         +interaction.Book interactions
@@ -146,7 +146,7 @@ classDiagram
     }
     Player ..> ProductCatalog : purchase_product参数借用
     note for ProductCatalog "由Bundle或可信应用持有，不属于Player"
-    PlayerState *-- Economy
+    PlayerState *-- Economy : assets
     PlayerState *-- PurchaseBook
     PlayerState *-- QuestBook
     Economy *-- EconomyState : State
@@ -180,7 +180,7 @@ classDiagram
 | quests / QuestCatalog | definitions_: map<QuestId, QuestDefinition> | 配置有效且标准化，目标ID唯一、奖励无重复 | find/entries/swap |
 | quests / ObjectiveRegistry | handlers_: map<TypeId, shared_ptr<const ObjectiveHandler>> | 类型唯一，处理器非空且确定无副作用 | add/find；default_objectives装配默认处理器 |
 | quests / QuestBook | catalog_/registry_/event_limit_/quests_/events_/claims_ | 冻结定义；接取/领奖边界；事件顺序去重；单调进度；领奖记录一致 | query_quest_status/accept_quest/apply_progress_event/observe_gameplay_fact/accepted/event_cursor/replace_catalog/snapshot/restore |
-| player / Player | interactions_、dialogues_；state_ → economy/purchases/quests/interactions/dialogues | 同一玩家唯一资产；发奖/领取标记/凭证统一提交 | query_quest_status/accept_quest/apply_quest_progress_event/observe_gameplay_fact/purchase_product/claim_quest_reward/execute_interaction/execute_dialogue_command/replace_quests/snapshot/restore |
+| player / Player | interactions_、dialogues_；state_ → assets/purchases/quests/interactions/dialogues | 同一玩家唯一资产；发奖/领取标记/凭证统一提交 | query_quest_status/accept_quest/apply_quest_progress_event/observe_gameplay_fact/purchase_product/claim_quest_reward/execute_interaction/execute_dialogue_command/replace_quests/snapshot/restore |
 | configuration / Bundle | version_/items_/currencies_/products_/quests_/registry_/interactions_ | 完整校验后只读交付，不返回半包 | load/decode + Bundle只读查询；不自动修改Player |
 | persistence | 无常驻领域对象；调用期间临时文件句柄和字节 | 有界读取；失败不污染输出；同目录原子替换及提交状态区分 | load_file/save_atomic |
 | interaction / Catalog、Book | Catalog.definitions_；Book.records_/modes_/last_event_/history_limit_ | 一次性/可重复交互、请求重放、配置模式一致、成功事实序号 | check_interaction_availability/execute_interaction/find_interaction_receipt/snapshot/restore |
@@ -380,3 +380,5 @@ sequenceDiagram
 ```
 
 完整存档现在还保存交互、对话快照，restore在候选中恢复各Book并核对完成回执与原始任务事实，防止与交互等占用同一事实序号。对话文本仍在应用资源层，不进入Player。此次产品目录外置不改变DQSTARCH v4字节结构。
+
+Player::State 中资产成员现名为 `assets`，强调它属于当前玩家；类型仍是 economy::Economy。公开 economy() 和各模块快照的 economy 字段不变，PreparedPurchase.economy 仍表示临时候选。

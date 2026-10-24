@@ -17,3 +17,5 @@
 - [005：对话完成事实与玩家格式 v4](005-dialogue-and-archive-v4.md)：对话/任务候选提交、冻结会话存档及旧格式兼容。
 
 - [006：商品目录外置](006-external-product-catalog.md)：购买借用可信配置，保留交互/对话目录并更新架构图。
+
+- [007：明确玩家资产成员命名](007-player-assets-name.md)：State::economy改为assets，公开接口与存档格式不变。

@@ -12,20 +12,20 @@ namespace designer::player
 {
     static_assert(std::is_nothrow_move_constructible<ClaimResult>::value, "Claim return must not allocate after commit");
     Player::Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
-                   std::unique_ptr<economy::Economy> economy, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit, dialogue::Catalog dialogues, std::size_t dialogue_limit)
-        : interactions_(std::move(interactions)), dialogues_(std::move(dialogues)), state_(std::make_unique<State>(State{std::move(economy),
+                   std::unique_ptr<economy::Economy> assets, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit, dialogue::Catalog dialogues, std::size_t dialogue_limit)
+        : interactions_(std::move(interactions)), dialogues_(std::move(dialogues)), state_(std::make_unique<State>(State{std::move(assets),
                                                                                commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit), dialogue::Book(dialogue_limit)}))
     {
-        if (!state_->economy)
-            throw std::invalid_argument("Player requires an economy");
+        if (!state_->assets)
+            throw std::invalid_argument("Player requires player assets");
     }
 
     std::unique_ptr<Player::State> Player::clone_state() const
     {
-        return std::make_unique<State>(State{state_->economy->clone(), state_->purchases, state_->quests, state_->interactions, state_->dialogues});
+        return std::make_unique<State>(State{state_->assets->clone(), state_->purchases, state_->quests, state_->interactions, state_->dialogues});
     }
 
-    const economy::Economy &Player::economy() const noexcept { return *state_->economy; }
+    const economy::Economy &Player::economy() const noexcept { return *state_->assets; }
 
     const quests::QuestBook &Player::quests() const noexcept { return state_->quests; }
 
@@ -61,7 +61,7 @@ namespace designer::player
     commerce::PurchaseResult Player::purchase_product(const commerce::ProductCatalog &products,
                                                       const commerce::PurchaseRequest &request)
     {
-        auto prepared = state_->purchases.prepare(products, *state_->economy, request);
+        auto prepared = state_->purchases.prepare(products, *state_->assets, request);
         if (prepared.result.error != commerce::Error::none || prepared.result.replayed)
             return std::move(prepared.result);
         auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book), state_->quests, state_->interactions, state_->dialogues});
@@ -132,7 +132,7 @@ namespace designer::player
     {
         const auto &request = context.request;
         const auto &frozen = context.candidate.quests.quests_.at(request.quest).definition;
-        const auto result = context.candidate.economy->execute({request.request_id, request.destination, {}, frozen.reward});
+        const auto result = context.candidate.assets->execute({request.request_id, request.destination, {}, frozen.reward});
         if (result.error == economy::Error::request_conflict || result.replayed)
             return quests::Error::request_conflict;
         if (result.error != economy::Error::none)
@@ -205,13 +205,13 @@ namespace designer::player
 
     PlayerSnapshot Player::snapshot() const
     {
-        return {{state_->economy->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot(), state_->interactions.snapshot(), state_->dialogues.snapshot()};
+        return {{state_->assets->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot(), state_->interactions.snapshot(), state_->dialogues.snapshot()};
     }
 
     quests::Error Player::restore(const PlayerSnapshot &snapshot)
     {
         auto candidate = clone_state();
-        if (candidate->economy->restore(snapshot.commerce.economy) != economy::Error::none ||
+        if (candidate->assets->restore(snapshot.commerce.economy) != economy::Error::none ||
             candidate->purchases.restore(snapshot.commerce) != commerce::Error::none ||
             candidate->quests.restore(snapshot.quests) != quests::Error::none ||
             candidate->interactions.restore(snapshot.interactions) != interaction::Error::none ||

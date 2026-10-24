@@ -132,3 +132,7 @@ player.purchase_product(data.products(), request);
 `interaction::Catalog interactions_`与`dialogue::Catalog dialogues_`本次保留；其每玩家运行记录保存在State内的Book，架构图明确区分目录和状态。独立商城Shop仍拥有自身商品表，未改变其接口。
 
 迁移：`Player(products, quests, registry, economy, ...)`改为`Player(quests, registry, economy, ...)`；`purchase_product(request)`改为`purchase_product(products, request)`；删除原replace_products调用，转由应用更新自己持有的商品目录。决策与验证见[步骤006](development/006-external-product-catalog.md)。
+
+## 玩家资产成员命名
+
+`State::assets`（类型 `unique_ptr<economy::Economy>`）保存当前玩家的钱包、物品容器及经济交易记录。它不是商品目录，也不是 PurchaseBook 的成员。公开只读查询仍为 `economy()`，快照和 PreparedPurchase 的 economy 字段不变；仅内部成员及构造参数改名。见[步骤007](development/007-player-assets-name.md)。

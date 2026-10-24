@@ -45,7 +45,7 @@ namespace designer::player
     {
     public:
         Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
-               std::unique_ptr<economy::Economy> economy, std::size_t event_limit = 256,
+               std::unique_ptr<economy::Economy> assets, std::size_t event_limit = 256,
                std::size_t purchase_limit = 256, interaction::Catalog interactions = interaction::Catalog({}),
                std::size_t interaction_limit = 256, dialogue::Catalog dialogues = dialogue::Catalog({}),
                std::size_t dialogue_limit = 256);
@@ -89,7 +89,7 @@ namespace designer::player
     private:
         struct State    // 玩家业务状态
         {
-            std::unique_ptr<economy::Economy> economy;
+            std::unique_ptr<economy::Economy> assets; // 本玩家的钱包、物品容器与经济交易记录
             commerce::PurchaseBook purchases;
             quests::QuestBook quests;
             interaction::Book interactions;
