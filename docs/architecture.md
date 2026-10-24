@@ -65,3 +65,7 @@ MMO 的可信端、重复请求与持久化要求从设计阶段记录；可以�
 对话 designer::dialogue 只依赖标准库，保存流程图、冻结会话与命令回执，不加载正文或调用任务。Player 在候选内完成会话并投递通用完成事实；任务只匹配绑定，不认识对话节点。独立字节存档 DDLGARCH v1 嵌入完整玩家 v4，旧版本补空对话。活动会话使用旧图，当前目录更新影响新会话。
 
 对话配置 designer::dialogue_configuration 独立于旧资产包，只把单份图/语言 JSON 校验成只读对象，应用决定加载/发布。图与正文资源生命周期不同，不能把图冻结解释成全套本地化/资源热更新。编辑源、分包与发布的边界见 [内容流程](content-pipeline.md)。
+
+[架构分析](architecture-review.md) · [成员与函数交互图](architecture-details.md)。
+
+商品目录现由可信应用持有，Player::purchase_product(products, request)只读借用，不再持有products_或提供replace_products。交互与对话目录仍由Player持有，State中的两个Book保存各自运行记录，见[玩家步骤006](../modules/gameplay/player/development/006-external-product-catalog.md)。

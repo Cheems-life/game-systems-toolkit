@@ -11,9 +11,9 @@
 namespace designer::player
 {
     static_assert(std::is_nothrow_move_constructible<ClaimResult>::value, "Claim return must not allocate after commit");
-    Player::Player(commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
+    Player::Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
                    std::unique_ptr<economy::Economy> economy, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit, dialogue::Catalog dialogues, std::size_t dialogue_limit)
-        : products_(std::move(products)), interactions_(std::move(interactions)), dialogues_(std::move(dialogues)), state_(std::make_unique<State>(State{std::move(economy),
+        : interactions_(std::move(interactions)), dialogues_(std::move(dialogues)), state_(std::make_unique<State>(State{std::move(economy),
                                                                                commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit), dialogue::Book(dialogue_limit)}))
     {
         if (!state_->economy)
@@ -58,9 +58,10 @@ namespace designer::player
         return result;
     }
 
-    commerce::PurchaseResult Player::purchase_product(const commerce::PurchaseRequest &request)
+    commerce::PurchaseResult Player::purchase_product(const commerce::ProductCatalog &products,
+                                                      const commerce::PurchaseRequest &request)
     {
-        auto prepared = state_->purchases.prepare(products_, *state_->economy, request);
+        auto prepared = state_->purchases.prepare(products, *state_->economy, request);
         if (prepared.result.error != commerce::Error::none || prepared.result.replayed)
             return std::move(prepared.result);
         auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book), state_->quests, state_->interactions, state_->dialogues});
@@ -200,7 +201,6 @@ namespace designer::player
         return output;
     }
 
-    void Player::replace_products(commerce::ProductCatalog products) noexcept { products_.swap(products); }
     void Player::replace_quests(quests::QuestCatalog catalog) { state_->quests.replace_catalog(std::move(catalog)); }
 
     PlayerSnapshot Player::snapshot() const

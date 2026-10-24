@@ -11,7 +11,7 @@ void* operator new(std::size_t size) {
 void operator delete(void* p) noexcept { std::free(p); }
 void operator delete(void* p, std::size_t) noexcept { std::free(p); }
 std::unique_ptr<player_api::Player> fresh() {
-    return std::make_unique<player_api::Player>(products(), quest::QuestCatalog({task(), task(2)}),
+    return std::make_unique<player_api::Player>(quest::QuestCatalog({task(), task(2)}),
         quest::default_objectives(), make_economy().clone());
 }
 template<class Create, class Operation>
@@ -26,13 +26,14 @@ void sweep(Create create, Operation operation) {
     CHECK(success);
 }
 int main() {
+    const auto trusted_products = products();
     sweep(fresh, [](player_api::Player& p) { return p.accept_quest(1, {5, 0}) == quest::Error::none; });
     auto active = [] { auto p = fresh(); CHECK(p->accept_quest(1, {5, 0}) == quest::Error::none); return p; };
     sweep(active, [](player_api::Player& p) { return p.apply_quest_progress_event({1, {{1, 10, 3}, {1, 20, 1}}}).error == quest::Error::none; });
-    auto prepared = [] { auto p = fresh(); ready(*p); CHECK(p->purchase_product({1, 100, 1, 1}).error == commerce::Error::none); return p; };
+    auto prepared = [] { auto p = fresh(); ready(*p); CHECK(p->purchase_product(products(), {1, 100, 1, 1}).error == commerce::Error::none); return p; };
     // Includes failures after the candidate is marked claimed but before receipt/return allocations finish.
     sweep(prepared, [](player_api::Player& p) { return p.claim_quest_reward({2, 1, 1}).error == quest::Error::none; });
-    sweep(prepared, [](player_api::Player& p) { return p.purchase_product({3, 100, 1, 1}).error == commerce::Error::none; });
+    sweep(prepared, [&trusted_products](player_api::Player& p) { return p.purchase_product(trusted_products, {3, 100, 1, 1}).error == commerce::Error::none; });
     auto source = prepared(); CHECK(source->claim_quest_reward({2, 1, 1}).error == quest::Error::none);
     const auto snapshot = source->snapshot();
     sweep(fresh, [&](player_api::Player& p) { return p.restore(snapshot) == quest::Error::none; });
@@ -58,7 +59,7 @@ int main() {
         auto definition = task();
         definition.objectives[0].binding = quest::ObjectiveBinding{100, 10, quest::FactInput::quantity};
         definition.objectives[1].binding = quest::ObjectiveBinding{200, 7, quest::FactInput::one};
-        return std::make_unique<player_api::Player>(products(), quest::QuestCatalog({definition}),
+        return std::make_unique<player_api::Player>(quest::QuestCatalog({definition}),
             quest::default_objectives(), make_economy().clone());
     };
     auto bound_active = [&] { auto p = bound(); CHECK(p->accept_quest(1, {5, 0}) == quest::Error::none); return p; };

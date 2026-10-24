@@ -15,7 +15,7 @@ void require(bool condition,const char* message) {if(!condition) throw std::runt
 std::unique_ptr<p::Player> create(const c::Bundle& cfg,std::size_t events=256) {
     eco::Wallet wallet(cfg.currencies());
     auto assets=std::make_unique<eco::Economy>(std::move(wallet),std::vector<eco::Container>{{1,inv::Inventory(16,cfg.items())}});
-    return std::make_unique<p::Player>(cfg.products(),cfg.quests(),cfg.objectives(),std::move(assets),events,256,cfg.interactions());
+    return std::make_unique<p::Player>(cfg.quests(),cfg.objectives(),std::move(assets),events,256,cfg.interactions());
 }
 std::string encode(const p::Player& player) {
     std::string bytes; require(p::encode_archive(player.snapshot(),bytes)==p::ArchiveError::none,"encode player"); return bytes;
@@ -29,7 +29,6 @@ int main(int argc,char** argv) {
         auto player=create(*cfg.bundle);
         if(load) {
             player->replace_interactions(i::Catalog({})); player->replace_quests(q::QuestCatalog({}));
-            player->replace_products(designer::commerce::ProductCatalog({}));
             std::string bytes; require(storage::load_file(argv[2],bytes)==storage::FileError::none,"load file");
             p::PlayerSnapshot snapshot; require(p::decode_archive(bytes,snapshot)==p::ArchiveError::none,"decode v3");
             require(player->restore(snapshot)==q::Error::none,"restore interaction and fact links");

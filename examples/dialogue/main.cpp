@@ -53,7 +53,7 @@ int main(int argc, char **argv)
         auto assets = std::make_unique<designer::economy::Economy>(
             std::move(wallet), std::vector<designer::economy::Container>{
                                    {1, designer::inventory::Inventory(16, base.bundle->items())}});
-        p::Player player(base.bundle->products(), base.bundle->quests(), base.bundle->objectives(),
+        p::Player player(base.bundle->quests(), base.bundle->objectives(),
                          std::move(assets));
         if (load)
         {

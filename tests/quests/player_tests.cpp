@@ -3,7 +3,7 @@
 int main() {
     auto p = player();
     ready(p);
-    CHECK(p.purchase_product({42, 100, 2, 1}).error == commerce::Error::none);
+    CHECK(p.purchase_product(products(), {42, 100, 2, 1}).error == commerce::Error::none);
     CHECK(p.economy().wallet().balance(1) == 300);
     const auto before = p.snapshot();
     CHECK(p.claim_quest_reward({42, 1, 1}).error == quest::Error::request_conflict && equal(before, p.snapshot()));
@@ -18,7 +18,7 @@ int main() {
     CHECK(p.claim_quest_reward({43, 1, 2}).error == quest::Error::request_conflict);
     CHECK(p.claim_quest_reward({0, 1, 1}).error == quest::Error::invalid_request);
     CHECK(p.apply_quest_progress_event({2, {{1, 10, 1}}}).error == quest::Error::already_claimed && equal(committed, p.snapshot()));
-    CHECK(p.purchase_product({43, 100, 1, 1}).error == commerce::Error::request_conflict);
+    CHECK(p.purchase_product(products(), {43, 100, 1, 1}).error == commerce::Error::request_conflict);
     CHECK(p.claim_quest_reward({44, 2, 1}).error == quest::Error::not_accepted);
     CHECK(p.accept_quest(2, {5, 1}) == quest::Error::none);
     CHECK(p.claim_quest_reward({44, 2, 1}).error == quest::Error::not_ready);
@@ -28,11 +28,11 @@ int main() {
     auto failed = funds.claim_quest_reward({700, 1, 1});
     CHECK(failed.error == quest::Error::economy_failure && failed.economy_error == eco::Error::balance_limit_exceeded);
     CHECK(equal(failed_before, funds.snapshot()) && funds.query_quest_status(1, {1, 1}).status == quest::Status::ready);
-    CHECK(funds.purchase_product({701, 100, 1, 1}).error == commerce::Error::none);
+    CHECK(funds.purchase_product(products(), {701, 100, 1, 1}).error == commerce::Error::none);
     CHECK(funds.claim_quest_reward({700, 1, 1}).error == quest::Error::none && funds.economy().wallet().balance(1) == 1000);
 
     auto capacity_task = task(); capacity_task.reward.items = {{10, 11}};
-    player_api::Player capacity(products(), quest::QuestCatalog({capacity_task}), quest::default_objectives(), make_economy(32, 1).clone());
+    player_api::Player capacity(quest::QuestCatalog({capacity_task}), quest::default_objectives(), make_economy(32, 1).clone());
     ready(capacity); failed_before = capacity.snapshot(); failed = capacity.claim_quest_reward({1, 1, 1});
     CHECK(failed.error == quest::Error::economy_failure && failed.inventory_error == inv::Error::insufficient_capacity);
     CHECK(equal(failed_before, capacity.snapshot()));
@@ -45,9 +45,9 @@ int main() {
     CHECK(frozen.apply_quest_progress_event({1, {{1, 10, 3}, {1, 20, 1}}}).error == quest::Error::none);
     frozen.replace_quests(quest::QuestCatalog({}));
     CHECK(frozen.claim_quest_reward({2, 1, 1}).error == quest::Error::none && frozen.economy().wallet().balance(1) == 600);
-    auto restored = player(); restored.replace_products(commerce::ProductCatalog({})); restored.replace_quests(quest::QuestCatalog({}));
+    auto restored = player(); restored.replace_quests(quest::QuestCatalog({}));
     CHECK(restored.restore(committed) == quest::Error::none && equal(committed, restored.snapshot()));
-    CHECK(restored.claim_quest_reward({43, 1, 1}).replayed && restored.purchase_product({42, 100, 2, 1}).replayed);
+    CHECK(restored.claim_quest_reward({43, 1, 1}).replayed && restored.purchase_product(commerce::ProductCatalog({}), {42, 100, 2, 1}).replayed);
     auto bad = committed; bad.commerce.economy.balances[1] = 1001;
     CHECK(restored.restore(bad) == quest::Error::invalid_snapshot && equal(committed, restored.snapshot()));
     bad = committed; bad.quests.claims[0].settlement.sequence = 99;
@@ -58,12 +58,37 @@ int main() {
     CHECK(restored.restore(bad) == quest::Error::invalid_snapshot && equal(committed, restored.snapshot()));
     auto occupied = make_economy();
     CHECK(occupied.execute({8, 1, {}, task().reward}).error == eco::Error::none);
-    player_api::Player collision(products(), quest::QuestCatalog({task()}), quest::default_objectives(), occupied.clone());
+    player_api::Player collision(quest::QuestCatalog({task()}), quest::default_objectives(), occupied.clone());
     ready(collision); const auto collision_before = collision.snapshot();
     CHECK(collision.claim_quest_reward({8, 1, 1}).error == quest::Error::request_conflict && equal(collision_before, collision.snapshot()));
     auto full = player(100, 256, 3, 1); ready(full);
-    CHECK(full.purchase_product({1, 100, 1, 1}).error == commerce::Error::none);
+    CHECK(full.purchase_product(products(), {1, 100, 1, 1}).error == commerce::Error::none);
     const auto full_before = full.snapshot(); failed = full.claim_quest_reward({2, 1, 1});
     CHECK(failed.economy_error == eco::Error::history_full && equal(full_before, full.snapshot()));
+    // 商品目录由调用方持有：同一玩家每次使用当前目录，重放仍依据历史凭证。
+    auto external = player();
+    std::optional<commerce::PurchaseReceipt> first_receipt;
+    {
+        const auto catalog = products(100, 1);
+        auto another = player();
+        const auto first = external.purchase_product(catalog, {800, 100, 1, 1});
+        CHECK(first.error == commerce::Error::none && first.receipt);
+        first_receipt = first.receipt;
+        CHECK(another.purchase_product(catalog, {800, 100, 1, 1}).error == commerce::Error::none);
+        CHECK(catalog.find(100)->unit_cost.currencies[0].amount == 100);
+    } // 目录已销毁，Player 不保留其引用；凭证独立存在。
+    CHECK(external.economy().wallet().balance(1) == 400);
+    const auto newer_catalog = products(150, 2);
+    const auto second = external.purchase_product(newer_catalog, {801, 100, 1, 1});
+    CHECK(second.error == commerce::Error::none && second.receipt->product_version == 2);
+    CHECK(external.economy().wallet().balance(1) == 250);
+    const commerce::ProductCatalog no_products({});
+    const auto replay = external.purchase_product(no_products, {800, 100, 1, 1});
+    CHECK(replay.replayed && replay.receipt == first_receipt);
+    auto stable = external.snapshot();
+    CHECK(external.purchase_product(no_products, {800, 100, 2, 1}).error == commerce::Error::request_conflict);
+    CHECK(external.purchase_product(no_products, {802, 100, 1, 1}).error == commerce::Error::unknown_product);
+    CHECK(external.purchase_product(products(100, 3, false), {802, 100, 1, 1}).error == commerce::Error::product_unavailable);
+    CHECK(equal(stable, external.snapshot()));
     std::cout << "Shared economy, one-time claims, frozen rules, failure safety and restoration passed\n";
 }

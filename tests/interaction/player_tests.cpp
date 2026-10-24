@@ -13,7 +13,7 @@ int main() {
     CHECK(p->execute_interaction({1,8}).replayed && equal(before,p->snapshot()));
     CHECK(p->execute_interaction({1,7}).error==interact::Error::request_conflict);
     CHECK(p->execute_interaction({3,7}).error==interact::Error::already_completed);
-    CHECK(p->purchase_product({1,100,1,1}).error==commerce::Error::none); // 经济请求是独立身份域。
+    CHECK(p->purchase_product(products(), {1,100,1,1}).error==commerce::Error::none); // 经济请求是独立身份域。
     CHECK(p->claim_quest_reward({2,1,1}).error==quest::Error::none);
     CHECK(p->interactions().snapshot()==before.interactions);
     CHECK(p->observe_gameplay_fact({200,999,1,1}).error==quest::Error::none);
@@ -37,7 +37,7 @@ int main() {
     // 一次事实匹配 65 目标时失败；用直接目标接口完成并领取一个任务后，原交互请求可重试成功。
     std::vector<quest::QuestDefinition> tasks;
     for (quest::QuestId id=1;id<=65;++id) { auto d=interaction_task(id); d.objectives.erase(d.objectives.begin()); tasks.push_back(d); }
-    player_api::Player fanout(products(),quest::QuestCatalog(tasks),quest::default_objectives(),make_economy().clone(),256,256,interaction_catalog());
+    player_api::Player fanout(quest::QuestCatalog(tasks),quest::default_objectives(),make_economy().clone(),256,256,interaction_catalog());
     for (quest::QuestId id=1;id<=65;++id) CHECK(fanout.accept_quest(id,{5,0})==quest::Error::none);
     const auto untouched=fanout.snapshot(); CHECK(fanout.execute_interaction({42,7}).error==interact::Error::fact_rejected);
     CHECK(equal(untouched,fanout.snapshot()));

@@ -8,7 +8,7 @@ q::QuestDefinition bound_task(q::QuestId id = 1) {
     d.objectives[1].binding = q::ObjectiveBinding{200, 7, q::FactInput::one}; return d;
 }
 player_api::Player bound_player(std::size_t slots = 3) {
-    return player_api::Player(products(), q::QuestCatalog({bound_task(), bound_task(2)}),
+    return player_api::Player(q::QuestCatalog({bound_task(), bound_task(2)}),
                              q::default_objectives(), make_economy(32, slots).clone());
 }
 int main() {
@@ -23,7 +23,7 @@ int main() {
     eco::Wallet golden_wallet(eco::CurrencyCatalog({{1, 1000}}));
     auto golden_economy = std::make_unique<eco::Economy>(std::move(golden_wallet),
         std::vector<eco::Container>{{1, inv::Inventory(1, inv::ItemCatalog({{10, 10}}))}});
-    player_api::Player golden_player(commerce::ProductCatalog({}), q::QuestCatalog({}), q::default_objectives(), std::move(golden_economy));
+    player_api::Player golden_player(q::QuestCatalog({}), q::default_objectives(), std::move(golden_economy));
     CHECK(golden_player.restore(golden_snapshot) == q::Error::none);
     CHECK(golden_player.observe_gameplay_fact({1, 100, 10, 2}).replayed);
     CHECK(golden_player.observe_gameplay_fact({2, 100, 10, 1}).error == q::Error::none && golden_player.query_quest_status(1, {5, 2}).status == q::Status::ready);
@@ -90,7 +90,7 @@ int main() {
     // 发奖失败不能提前关掉事实匹配；后续仍能接收事实。
     auto full = bound_player(1); CHECK(full.accept_quest(1, {5, 0}) == q::Error::none);
     CHECK(full.observe_gameplay_fact({1, 100, 10, 3}).error == q::Error::none && full.observe_gameplay_fact({2, 200, 7, 1}).error == q::Error::none);
-    CHECK(full.purchase_product({10, 100, 1, 1}).error == commerce::Error::none); // 背包占用；任务奖励与已有同物品可能合并。
+    CHECK(full.purchase_product(products(), {10, 100, 1, 1}).error == commerce::Error::none); // 背包占用；任务奖励与已有同物品可能合并。
     auto filled = full.snapshot(); filled.commerce.economy.containers[0].slots[0] = inv::ItemStack{10, 10};
     CHECK(full.restore(filled) == q::Error::none);
     const auto prior = full.snapshot(); CHECK(full.claim_quest_reward({11, 1, 1}).error == q::Error::economy_failure);

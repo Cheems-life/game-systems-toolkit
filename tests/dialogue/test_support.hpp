@@ -28,8 +28,7 @@ inline std::unique_ptr<player_api::Player> dialogue_player(std::size_t events = 
 {
     auto q = task();
     q.objectives = {{10, quest::flag_type, 1, 1, quest::ObjectiveBinding{400, 5001, quest::FactInput::one}}};
-    return std::make_unique<player_api::Player>(
-        products(), quest::QuestCatalog({q}), quest::default_objectives(), make_economy().clone(), events,
+    return std::make_unique<player_api::Player>(quest::QuestCatalog({q}), quest::default_objectives(), make_economy().clone(), events,
         256, designer::interaction::Catalog({{7, 1, true, designer::interaction::Mode::repeatable, 400}}),
         256, d::Catalog({dialogue_definition()}), history);
 }

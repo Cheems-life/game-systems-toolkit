@@ -41,3 +41,5 @@
 | 平台与发行适配 | 待开发 | [记录](../modules/services/platform/development/README.md) |
 | 社交与组队 | 待开发 | [记录](../modules/services/social/development/README.md) |
 | 玩家业务协调 | 实验性，交互/对话/任务协调与 v1..v4 存档 | [记录](../modules/gameplay/player/development/README.md) |
+
+玩家商品目录已外置，交互/对话目录保留；本次迁移见[玩家步骤006](../modules/gameplay/player/development/006-external-product-catalog.md)。

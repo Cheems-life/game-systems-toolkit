@@ -19,7 +19,7 @@ int main()
     CHECK(p->execute_dialogue_command(finish).replayed && equal(done, p->snapshot()));
     CHECK(p->execute_dialogue_command(step(103, d::Action::finish, 3, 4)).error ==
           d::Error::request_conflict);
-    CHECK(p->purchase_product({100, 100, 1, 1}).error == commerce::Error::none);
+    CHECK(p->purchase_product(products(), {100, 100, 1, 1}).error == commerce::Error::none);
     CHECK(p->dialogues().query_dialogue_session(100)->status ==
           d::Status::completed); // purchase 的候选也保留对话。
     CHECK(p->claim_quest_reward({101, 1, 1}).error == quest::Error::none);

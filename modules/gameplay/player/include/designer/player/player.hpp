@@ -44,7 +44,7 @@ namespace designer::player
     class Player
     {
     public:
-        Player(commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
+        Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
                std::unique_ptr<economy::Economy> economy, std::size_t event_limit = 256,
                std::size_t purchase_limit = 256, interaction::Catalog interactions = interaction::Catalog({}),
                std::size_t interaction_limit = 256, dialogue::Catalog dialogues = dialogue::Catalog({}),
@@ -65,7 +65,9 @@ namespace designer::player
 
         [[nodiscard]] quests::EventResult observe_gameplay_fact(const quests::GameplayFact &fact); // 匹配冻结绑定并统一推进
 
-        [[nodiscard]] commerce::PurchaseResult purchase_product(const commerce::PurchaseRequest &request); // 购买商品，统一扣款与发奖
+        // 只在本次调用借用可信商品目录，不保存引用或副本。
+        [[nodiscard]] commerce::PurchaseResult purchase_product(const commerce::ProductCatalog &products,
+                                                               const commerce::PurchaseRequest &request); // 购买商品，统一扣款与发奖
 
         [[nodiscard]] interaction::View check_interaction_availability(interaction::PointId point) const noexcept;
         [[nodiscard]] InteractionResult execute_interaction(const interaction::Request& request);
@@ -77,8 +79,6 @@ namespace designer::player
         void replace_dialogues(dialogue::Catalog catalog) noexcept;
 
         [[nodiscard]] ClaimResult claim_quest_reward(const quests::ClaimRequest &request);
-
-        void replace_products(commerce::ProductCatalog products) noexcept;
 
         void replace_quests(quests::QuestCatalog catalog);
 
@@ -113,7 +113,6 @@ namespace designer::player
 
         [[nodiscard]] std::unique_ptr<State> clone_state() const;
 
-        commerce::ProductCatalog products_;
         interaction::Catalog interactions_;
         dialogue::Catalog dialogues_;
         std::unique_ptr<State> state_;

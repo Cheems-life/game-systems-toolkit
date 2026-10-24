@@ -13,7 +13,7 @@ int main() {
     std::string canonical; CHECK(player_api::encode_archive(fixture,canonical)==player_api::ArchiveError::none && canonical==interaction_golden_v4);
     eco::Wallet wallet(eco::CurrencyCatalog({{1,1000}}));
     auto assets=std::make_unique<eco::Economy>(std::move(wallet),std::vector<eco::Container>{{1,inv::Inventory(1,inv::ItemCatalog({{10,10}}))}});
-    player_api::Player golden(commerce::ProductCatalog({}),quest::QuestCatalog({}),quest::default_objectives(),std::move(assets));
+    player_api::Player golden(quest::QuestCatalog({}),quest::default_objectives(),std::move(assets));
     CHECK(golden.restore(fixture)==quest::Error::none && golden.execute_interaction({50,7}).replayed);
     CHECK(golden.execute_interaction({51,7}).error==interact::Error::already_completed);
     auto p=interaction_player(); CHECK(p->accept_quest(1,{5,0})==quest::Error::none);

@@ -30,7 +30,7 @@ int main()
     eco::Wallet wallet(eco::CurrencyCatalog({{1, 1000}}));
     auto assets = std::make_unique<eco::Economy>(
         std::move(wallet), std::vector<eco::Container>{{1, inv::Inventory(1, inv::ItemCatalog({{10, 10}}))}});
-    player_api::Player legacy(commerce::ProductCatalog({}), quest::QuestCatalog({}),
+    player_api::Player legacy(quest::QuestCatalog({}),
                               quest::default_objectives(), std::move(assets));
     CHECK(legacy.restore(outer) == quest::Error::none &&
           legacy.execute_dialogue_command({11, d::Action::finish, 0, 10, 1, 1}).replayed);

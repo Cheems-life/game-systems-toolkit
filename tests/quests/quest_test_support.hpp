@@ -10,7 +10,7 @@ inline quest::QuestDefinition task(quest::QuestId id = 1, eco::Amount reward = 1
 }
 inline player_api::Player player(eco::Amount reward = 100, std::size_t event_limit = 256,
                             std::size_t slots = 3, std::size_t economic_limit = 32) {
-    return player_api::Player(products(), quest::QuestCatalog({task(1, reward), task(2, 10)}),
+    return player_api::Player(quest::QuestCatalog({task(1, reward), task(2, 10)}),
                          quest::default_objectives(), make_economy(economic_limit, slots).clone(), event_limit);
 }
 inline bool equal(const player_api::PlayerSnapshot& a, const player_api::PlayerSnapshot& b) {

@@ -34,7 +34,7 @@ Player 持有唯一 Economy、无资产的 PurchaseBook、QuestBook、interactio
 
 CMake 链接 `designer::player`；写文件再链接 `designer::persistence`。任务核心单独使用时只链接 `designer::quests` 或 `designer::quest_core`。
 
-只读接口 `economy()` / `quests()` 用于查询，不提供可写指针。成功接取、推进、购买、领奖、恢复后旧视图可能失效；跨操作保留数据应使用快照。商品目录与任务目录替换有各自的引用失效边界。
+只读接口 `economy()` / `quests()` 用于查询，不提供可写指针。成功接取、推进、购买、领奖、恢复后旧视图可能失效；跨操作保留数据应使用快照。任务、交互与对话目录替换有各自的引用失效边界；商品目录由应用持有。
 
 ## 存档与迁移
 
@@ -117,3 +117,18 @@ State 增加 dialogue::Book，当前 dialogue::Catalog 独立保存。构造函�
 replace_dialogues 交换的是调用方准备好的完整目录，不自动比较旧版本或合并未提供的图；单图增量请在应用持有的 Catalog 副本调用 replace_dialogue_definition，再整体发布。活动/历史会话仍固定开始版本。图冻结不包括 UI 正文，文本资源版本与旧键保留由接入层负责。
 
 示例见 [examples/dialogue](../../../examples/dialogue/main.cpp)，规则/上限见 [对话模块](../dialogue/README.md)，跨模块选择与验证见 [步骤 005](development/005-dialogue-and-archive-v4.md)。仅保证单线程内存候选提交，文件保存是另一步，无数据库或多线程事务承诺。
+
+## 商品目录由调用方管理
+
+Player不持有`commerce::ProductCatalog`，不再提供`replace_products`，构造函数从`QuestCatalog`开始。调用方持有可信的当前商品目录，购买时借用：
+
+```cpp
+// data来自已校验配置，Player不保存data.products()的引用。
+player.purchase_product(data.products(), request);
+```
+
+目录需要在本次同步调用期间有效且不被并发修改，操作结束后可释放。新请求按传入目录定价；成功请求重放先查凭证，因此目录清空、改价或下架后仍返回原结果。商品目录不在PlayerSnapshot中，此次修改不改变写v4/读v1..v4格式。
+
+`interaction::Catalog interactions_`与`dialogue::Catalog dialogues_`本次保留；其每玩家运行记录保存在State内的Book，架构图明确区分目录和状态。独立商城Shop仍拥有自身商品表，未改变其接口。
+
+迁移：`Player(products, quests, registry, economy, ...)`改为`Player(quests, registry, economy, ...)`；`purchase_product(request)`改为`purchase_product(products, request)`；删除原replace_products调用，转由应用更新自己持有的商品目录。决策与验证见[步骤006](development/006-external-product-catalog.md)。

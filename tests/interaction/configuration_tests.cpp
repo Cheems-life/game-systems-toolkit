@@ -35,7 +35,7 @@ int main() {
     const auto& data=*loaded.bundle;
     eco::Wallet wallet(data.currencies());
     auto assets=std::make_unique<eco::Economy>(std::move(wallet),std::vector<eco::Container>{{1,inv::Inventory(16,data.items())}});
-    player_api::Player p(data.products(),data.quests(),data.objectives(),std::move(assets),256,256,data.interactions());
+    player_api::Player p(data.quests(),data.objectives(),std::move(assets),256,256,data.interactions());
     CHECK(p.accept_quest(1,{5,0})==quest::Error::none && p.execute_interaction({1,8}).error==interact::Error::none && p.execute_interaction({2,7}).error==interact::Error::none);
     CHECK(p.query_quest_status(1,{5,2}).status==quest::Status::ready);
     std::cout << "Interaction configuration v3 and legacy schema compatibility passed\n";
