@@ -17,7 +17,7 @@ inline bool equal(const player_api::PlayerSnapshot& a, const player_api::PlayerS
     return equal(a.commerce, b.commerce) && a.quests == b.quests && a.interactions == b.interactions;
 }
 inline void ready(player_api::Player& player, quest::QuestId id = 1, quest::EventId event = 1) {
-    CHECK(player.accept(id, {5, event - 1}) == quest::Error::none);
-    CHECK(player.apply({event, {{id, 10, 3}, {id, 20, 1}}}).error == quest::Error::none);
-    CHECK(player.query(id, {1, event}).status == quest::Status::ready);
+    CHECK(player.accept_quest(id, {5, event - 1}) == quest::Error::none);
+    CHECK(player.apply_quest_progress_event({event, {{id, 10, 3}, {id, 20, 1}}}).error == quest::Error::none);
+    CHECK(player.query_quest_status(id, {1, event}).status == quest::Status::ready);
 }

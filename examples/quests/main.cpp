@@ -38,25 +38,25 @@ int main(int argc, char** argv) {
         if (parsed != player_api::ArchiveError::none) { std::cerr << player_api::archive_error_name(parsed) << '\n'; return 1; }
         if (player.restore(snapshot) != q::Error::none) return 1;
     } else {
-        const auto unavailable = player.query(1, {4, 100});
-        if (unavailable.condition.reason != q::ConditionReason::level_too_low || player.accept(1, {4, 100}) != q::Error::condition_denied) return 1;
-        if (player.apply({100, {}}).error != q::Error::none || player.accept(1, {5, 100}) != q::Error::none) return 1;
+        const auto unavailable = player.query_quest_status(1, {4, 100});
+        if (unavailable.condition.reason != q::ConditionReason::level_too_low || player.accept_quest(1, {4, 100}) != q::Error::condition_denied) return 1;
+        if (player.apply_quest_progress_event({100, {}}).error != q::Error::none || player.accept_quest(1, {5, 100}) != q::Error::none) return 1;
         // These adapters could be collecting evidence and finishing a dialogue; the core knows neither.
-        if (player.apply({101, {{1, 10, 2}}}).error != q::Error::none) return 1;
-        if (player.apply({102, {{1, 10, 1}, {1, 20, 1}}}).error != q::Error::none) return 1;
-        if (player.query(1, {1, 102}).status != q::Status::ready) return 1;
+        if (player.apply_quest_progress_event({101, {{1, 10, 2}}}).error != q::Error::none) return 1;
+        if (player.apply_quest_progress_event({102, {{1, 10, 1}, {1, 20, 1}}}).error != q::Error::none) return 1;
+        if (player.query_quest_status(1, {1, 102}).status != q::Status::ready) return 1;
         auto updated = definition(); updated.version = 2; updated.objectives[0].target = 99; updated.reward.currencies[0].amount = 900;
         player.replace_quests(q::QuestCatalog({updated}));
-        if (player.purchase({42, 100, 1, 1}).error != com::Error::none || player.economy().wallet().balance(1) != 400) return 1;
-        if (player.claim({43, 1, 1}).error != q::Error::none || player.economy().wallet().balance(1) != 500) return 1;
+        if (player.purchase_product({42, 100, 1, 1}).error != com::Error::none || player.economy().wallet().balance(1) != 400) return 1;
+        if (player.claim_quest_reward({43, 1, 1}).error != q::Error::none || player.economy().wallet().balance(1) != 500) return 1;
         std::cout << "Level gate, count + flag goals, frozen rewards and shared-wallet purchase/claim succeeded.\n";
     }
     std::string before, after;
     if (player_api::encode_archive(player.snapshot(), before) != player_api::ArchiveError::none) return 1;
-    if (!player.apply({101, {{1, 10, 2}}}).replayed || !player.purchase({42, 100, 1, 1}).replayed ||
-        !player.claim({43, 1, 1}).replayed || player.claim({44, 1, 1}).error != q::Error::already_claimed) return 1;
+    if (!player.apply_quest_progress_event({101, {{1, 10, 2}}}).replayed || !player.purchase_product({42, 100, 1, 1}).replayed ||
+        !player.claim_quest_reward({43, 1, 1}).replayed || player.claim_quest_reward({44, 1, 1}).error != q::Error::already_claimed) return 1;
     if (player_api::encode_archive(player.snapshot(), after) != player_api::ArchiveError::none || before != after) return 1;
-    if (player.economy().wallet().balance(1) != 500 || player.query(1, {0, 0}).status != q::Status::claimed) return 1;
+    if (player.economy().wallet().balance(1) != 500 || player.query_quest_status(1, {0, 0}).status != q::Status::claimed) return 1;
     if (load) std::cout << "Restart: frozen quest and event/purchase/claim replays restored without current catalogs.\n";
     else {
         const auto saved = storage::save_atomic(argv[1], after);

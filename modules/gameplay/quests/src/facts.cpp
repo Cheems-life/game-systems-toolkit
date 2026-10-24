@@ -31,7 +31,7 @@ Error route_fact(const GameplayFact& fact, const std::map<QuestId, AcceptedQuest
     updates.swap(candidate); return Error::none;
 }
 } // namespace detail
-EventResult QuestBook::observe(const GameplayFact& fact) {
+EventResult QuestBook::observe_gameplay_fact(const GameplayFact& fact) {
     if (!valid_fact(fact)) return {Error::invalid_update};
     const auto found = events_.find(fact.id);
     if (found != events_.end()) {
@@ -43,6 +43,6 @@ EventResult QuestBook::observe(const GameplayFact& fact) {
     ProgressEvent event{fact.id, {}, fact};
     const auto routed = detail::route_fact(fact, quests_, false, event.updates);
     if (routed != Error::none) return {routed};
-    return apply(event);
+    return apply_progress_event(event);
 }
 } // namespace designer::quests

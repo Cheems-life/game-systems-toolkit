@@ -16,8 +16,8 @@ int main() {
     const auto binding = R"({"fact_type":100,"subject":1001,"input":"quantity"})";
     const auto bytes = replace(blank, "\"binding\": null", std::string("\"binding\": ") + binding);
     const auto loaded = c::decode(bytes, q::default_objectives()); CHECK(loaded.bundle);
-    q::QuestBook book(loaded.bundle->quests(), loaded.bundle->objectives()); CHECK(book.accept(1, {5, 0}) == q::Error::none);
-    CHECK(book.observe({1, 100, 1001, 2}).error == q::Error::none && book.accepted(1)->progress[0] == 2);
+    q::QuestBook book(loaded.bundle->quests(), loaded.bundle->objectives()); CHECK(book.accept_quest(1, {5, 0}) == q::Error::none);
+    CHECK(book.observe_gameplay_fact({1, 100, 1001, 2}).error == q::Error::none && book.find_accepted_quest(1)->progress[0] == 2);
     CHECK(!loaded.bundle->quests().find(1)->objectives[1].binding);
     CHECK(c::decode(fixture(), q::default_objectives()).bundle); // v1 保持无绑定。
     auto reject = [&](std::string text, c::Error code, std::string path) {

@@ -26,14 +26,14 @@ int main() {
     auto current_definition = task(); current_definition.objectives[0].binding = quest::ObjectiveBinding{100, 10, quest::FactInput::quantity};
     player_api::Player legacy(commerce::ProductCatalog({}), quest::QuestCatalog({current_definition}), quest::default_objectives(), std::move(legacy_assets));
     CHECK(legacy.restore(fixture) == quest::Error::none);
-    CHECK(!legacy.quests().accepted(1)->definition.objectives[0].binding); // 不从当前配置补旧任务绑定。
-    CHECK(legacy.observe({2, 100, 10, 1}).error == quest::Error::none && legacy.quests().accepted(1)->progress[0] == 2);
-    CHECK(legacy.apply({3, {{1, 10, 1}}}).error == quest::Error::none);
-    CHECK(legacy.claim({99, 1, 1}).error == quest::Error::none && legacy.quests().accepted(1)->fact_until == 0);
+    CHECK(!legacy.quests().find_accepted_quest(1)->definition.objectives[0].binding); // 不从当前配置补旧任务绑定。
+    CHECK(legacy.observe_gameplay_fact({2, 100, 10, 1}).error == quest::Error::none && legacy.quests().find_accepted_quest(1)->progress[0] == 2);
+    CHECK(legacy.apply_quest_progress_event({3, {{1, 10, 1}}}).error == quest::Error::none);
+    CHECK(legacy.claim_quest_reward({99, 1, 1}).error == quest::Error::none && legacy.quests().find_accepted_quest(1)->fact_until == 0);
 
     auto p = player(); ready(p);
-    CHECK(p.purchase({1, 100, 1, 1}).error == commerce::Error::none);
-    CHECK(p.claim({2, 1, 1}).error == quest::Error::none);
+    CHECK(p.purchase_product({1, 100, 1, 1}).error == commerce::Error::none);
+    CHECK(p.claim_quest_reward({2, 1, 1}).error == quest::Error::none);
     const auto original = p.snapshot();
     std::string bytes;
     CHECK(player_api::encode_archive(original, bytes) == player_api::ArchiveError::none);
@@ -64,8 +64,8 @@ int main() {
     bad = original; bad.quests.events.resize(quest::max_events + 1);
     CHECK(player_api::encode_archive(bad, keep) == player_api::ArchiveError::too_large && keep == "keep");
     auto restored = player(); restored.replace_products(commerce::ProductCatalog({})); restored.replace_quests(quest::QuestCatalog({}));
-    CHECK(restored.restore(before) == quest::Error::none && restored.claim({2, 1, 1}).replayed);
-    CHECK(restored.purchase({1, 100, 1, 1}).replayed && equal(original, restored.snapshot()));
+    CHECK(restored.restore(before) == quest::Error::none && restored.claim_quest_reward({2, 1, 1}).replayed);
+    CHECK(restored.purchase_product({1, 100, 1, 1}).replayed && equal(original, restored.snapshot()));
     bad = original; bad.quests.quests[0].definition.objectives[0].type = 99;
     CHECK(player_api::encode_archive(bad, keep) == player_api::ArchiveError::none); // Wire schema can carry a registered extension.
     CHECK(player_api::decode_archive(keep, decoded) == player_api::ArchiveError::none);

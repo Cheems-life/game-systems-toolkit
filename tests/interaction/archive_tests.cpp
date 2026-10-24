@@ -14,16 +14,16 @@ int main() {
     eco::Wallet wallet(eco::CurrencyCatalog({{1,1000}}));
     auto assets=std::make_unique<eco::Economy>(std::move(wallet),std::vector<eco::Container>{{1,inv::Inventory(1,inv::ItemCatalog({{10,10}}))}});
     player_api::Player golden(commerce::ProductCatalog({}),quest::QuestCatalog({}),quest::default_objectives(),std::move(assets));
-    CHECK(golden.restore(fixture)==quest::Error::none && golden.interact({50,7}).replayed);
-    CHECK(golden.interact({51,7}).error==interact::Error::already_completed);
-    auto p=interaction_player(); CHECK(p->accept(1,{5,0})==quest::Error::none);
-    CHECK(p->interact({1,8}).error==interact::Error::none && p->interact({2,7}).error==interact::Error::none);
-    CHECK(p->claim({1,1,1}).error==quest::Error::none);
+    CHECK(golden.restore(fixture)==quest::Error::none && golden.execute_interaction({50,7}).replayed);
+    CHECK(golden.execute_interaction({51,7}).error==interact::Error::already_completed);
+    auto p=interaction_player(); CHECK(p->accept_quest(1,{5,0})==quest::Error::none);
+    CHECK(p->execute_interaction({1,8}).error==interact::Error::none && p->execute_interaction({2,7}).error==interact::Error::none);
+    CHECK(p->claim_quest_reward({1,1,1}).error==quest::Error::none);
     const auto original=p->snapshot(); std::string bytes; CHECK(player_api::encode_archive(original,bytes)==player_api::ArchiveError::none);
     player_api::PlayerSnapshot decoded; CHECK(player_api::decode_archive(bytes,decoded)==player_api::ArchiveError::none && equal(decoded,original));
     auto restored=interaction_player(); restored->replace_interactions(interact::Catalog({})); restored->replace_quests(quest::QuestCatalog({}));
-    CHECK(restored->restore(decoded)==quest::Error::none && restored->interact({1,8}).replayed && restored->interact({2,7}).replayed);
-    CHECK(restored->claim({1,1,1}).replayed);
+    CHECK(restored->restore(decoded)==quest::Error::none && restored->execute_interaction({1,8}).replayed && restored->execute_interaction({2,7}).replayed);
+    CHECK(restored->claim_quest_reward({1,1,1}).replayed);
     auto reject=[&](player_api::PlayerSnapshot bad) {
         CHECK(restored->restore(bad)==quest::Error::invalid_snapshot && equal(original,restored->snapshot()));
         std::string keep="keep"; CHECK(player_api::encode_archive(bad,keep)==player_api::ArchiveError::malformed && keep=="keep");

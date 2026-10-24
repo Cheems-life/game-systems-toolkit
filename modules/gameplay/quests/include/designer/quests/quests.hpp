@@ -277,17 +277,17 @@ namespace designer::quests
     public:
         QuestBook(QuestCatalog catalog, ObjectiveRegistry registry, std::size_t event_limit = 256);
 
-        [[nodiscard]] QuestView query(QuestId id, PlayerReadContext context) const noexcept;
+        [[nodiscard]] QuestView query_quest_status(QuestId id, PlayerReadContext context) const noexcept;
 
-        [[nodiscard]] Error accept(QuestId id, PlayerReadContext context);
+        [[nodiscard]] Error accept_quest(QuestId id, PlayerReadContext context);
 
-        [[nodiscard]] EventResult apply(const ProgressEvent &event);
+        [[nodiscard]] EventResult apply_progress_event(const ProgressEvent &event);
 
-        [[nodiscard]] EventResult observe(const GameplayFact &fact);
+        [[nodiscard]] EventResult observe_gameplay_fact(const GameplayFact &fact);
 
         [[nodiscard]] EventId event_cursor() const noexcept; // 已处理事件和接取边界的最大值
 
-        [[nodiscard]] const AcceptedQuest *accepted(QuestId id) const noexcept;
+        [[nodiscard]] const AcceptedQuest *find_accepted_quest(QuestId id) const noexcept;
 
         void replace_catalog(QuestCatalog catalog);
 

@@ -136,15 +136,15 @@ namespace designer::quests
         return true;
     }
 
-    const AcceptedQuest *QuestBook::accepted(QuestId id) const noexcept
+    const AcceptedQuest *QuestBook::find_accepted_quest(QuestId id) const noexcept
     {
         const auto found = quests_.find(id);
         return found == quests_.end() ? nullptr : &found->second;
     }
 
-    QuestView QuestBook::query(QuestId id, PlayerReadContext context) const noexcept
+    QuestView QuestBook::query_quest_status(QuestId id, PlayerReadContext context) const noexcept
     {
-        if (const auto *quest = accepted(id))
+        if (const auto *quest = find_accepted_quest(id))
             return {Error::none, quest->claimed ? Status::claimed : complete(*quest) ? Status::ready
                                                                                      : Status::active,
                     {true}};
@@ -162,12 +162,12 @@ namespace designer::quests
         return cursor;
     }
 
-    Error QuestBook::accept(QuestId id, PlayerReadContext context)
+    Error QuestBook::accept_quest(QuestId id, PlayerReadContext context)
     {
-        if (accepted(id))
+        if (find_accepted_quest(id))
             return Error::already_accepted;
 
-        const auto view = query(id, context);       // 查询任务与接取条件
+        const auto view = query_quest_status(id, context);       // 查询任务与接取条件
         if (view.error != Error::none)
             return view.error;
 
@@ -195,7 +195,7 @@ namespace designer::quests
         catalog_.swap(catalog);
     }
 
-    EventResult QuestBook::apply(const ProgressEvent &input)
+    EventResult QuestBook::apply_progress_event(const ProgressEvent &input)
     {
         if (input.updates.size() > max_updates)
             return {Error::invalid_update};

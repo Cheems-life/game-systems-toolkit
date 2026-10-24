@@ -26,14 +26,14 @@ void sweep(Create create, Operation operation) {
     CHECK(success);
 }
 int main() {
-    sweep(fresh, [](player_api::Player& p) { return p.accept(1, {5, 0}) == quest::Error::none; });
-    auto active = [] { auto p = fresh(); CHECK(p->accept(1, {5, 0}) == quest::Error::none); return p; };
-    sweep(active, [](player_api::Player& p) { return p.apply({1, {{1, 10, 3}, {1, 20, 1}}}).error == quest::Error::none; });
-    auto prepared = [] { auto p = fresh(); ready(*p); CHECK(p->purchase({1, 100, 1, 1}).error == commerce::Error::none); return p; };
+    sweep(fresh, [](player_api::Player& p) { return p.accept_quest(1, {5, 0}) == quest::Error::none; });
+    auto active = [] { auto p = fresh(); CHECK(p->accept_quest(1, {5, 0}) == quest::Error::none); return p; };
+    sweep(active, [](player_api::Player& p) { return p.apply_quest_progress_event({1, {{1, 10, 3}, {1, 20, 1}}}).error == quest::Error::none; });
+    auto prepared = [] { auto p = fresh(); ready(*p); CHECK(p->purchase_product({1, 100, 1, 1}).error == commerce::Error::none); return p; };
     // Includes failures after the candidate is marked claimed but before receipt/return allocations finish.
-    sweep(prepared, [](player_api::Player& p) { return p.claim({2, 1, 1}).error == quest::Error::none; });
-    sweep(prepared, [](player_api::Player& p) { return p.purchase({3, 100, 1, 1}).error == commerce::Error::none; });
-    auto source = prepared(); CHECK(source->claim({2, 1, 1}).error == quest::Error::none);
+    sweep(prepared, [](player_api::Player& p) { return p.claim_quest_reward({2, 1, 1}).error == quest::Error::none; });
+    sweep(prepared, [](player_api::Player& p) { return p.purchase_product({3, 100, 1, 1}).error == commerce::Error::none; });
+    auto source = prepared(); CHECK(source->claim_quest_reward({2, 1, 1}).error == quest::Error::none);
     const auto snapshot = source->snapshot();
     sweep(fresh, [&](player_api::Player& p) { return p.restore(snapshot) == quest::Error::none; });
     bool success = false;
@@ -61,15 +61,15 @@ int main() {
         return std::make_unique<player_api::Player>(products(), quest::QuestCatalog({definition}),
             quest::default_objectives(), make_economy().clone());
     };
-    auto bound_active = [&] { auto p = bound(); CHECK(p->accept(1, {5, 0}) == quest::Error::none); return p; };
-    sweep(bound_active, [](player_api::Player& p) { return p.observe({1, 100, 10, 3}).error == quest::Error::none; });
+    auto bound_active = [&] { auto p = bound(); CHECK(p->accept_quest(1, {5, 0}) == quest::Error::none); return p; };
+    sweep(bound_active, [](player_api::Player& p) { return p.observe_gameplay_fact({1, 100, 10, 3}).error == quest::Error::none; });
     auto bound_ready = [&] {
-        auto p = bound_active(); CHECK(p->observe({1, 100, 10, 3}).error == quest::Error::none);
-        CHECK(p->observe({2, 200, 7, 1}).error == quest::Error::none); return p;
+        auto p = bound_active(); CHECK(p->observe_gameplay_fact({1, 100, 10, 3}).error == quest::Error::none);
+        CHECK(p->observe_gameplay_fact({2, 200, 7, 1}).error == quest::Error::none); return p;
     };
-    sweep(bound_ready, [](player_api::Player& p) { return p.claim({1, 1, 1}).error == quest::Error::none; });
-    auto bound_source = bound_ready(); CHECK(bound_source->claim({1, 1, 1}).error == quest::Error::none);
-    CHECK(bound_source->observe({3, 100, 10, 9}).error == quest::Error::none);
+    sweep(bound_ready, [](player_api::Player& p) { return p.claim_quest_reward({1, 1, 1}).error == quest::Error::none; });
+    auto bound_source = bound_ready(); CHECK(bound_source->claim_quest_reward({1, 1, 1}).error == quest::Error::none);
+    CHECK(bound_source->observe_gameplay_fact({3, 100, 10, 9}).error == quest::Error::none);
     const auto frozen = bound_source->snapshot();
     sweep(bound, [&](player_api::Player& p) { return p.restore(frozen) == quest::Error::none; });
     for (bool encoding : {true, false}) {

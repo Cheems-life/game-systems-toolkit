@@ -11,3 +11,5 @@
 - [002：事实投递与玩家存档 v2](002-fact-delivery-and-archive-v2.md)
 
 - [003：交互、任务事实与完整存档 v3](003-interaction-and-archive-v3.md)
+
+- [004：明确业务接口命名](004-explicit-business-api-names.md)：2026-10-24，当前接口名与迁移说明。

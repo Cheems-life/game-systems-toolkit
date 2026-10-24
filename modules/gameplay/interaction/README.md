@@ -36,9 +36,9 @@ Player 候选中推进任务 → 全部成功后一次提交
 - 一次点可以在没有任务时完成；之后接取任务不补算历史事实，换请求也无法重做。需要“历史上已完成检查”的目标时，必须另行设计持有状态/世界状态查询，当前只处理接取后的事件。
 - once 的成功历史会阻止换请求 ID 再次完成；改版本或把当前配置改成 repeatable 也不重新开放。重复点成功后改成 once 报 configuration_conflict。需要不同生命周期时用新点 ID，正式迁移另行设计。
 - repeatable 的每个新请求可以使用新版本/新事实类型，但历史结果保持冻结。发布者负责版本含义，不检查同版本不同内容。
-- 独立 Book.execute 要求新的 event_id 为正且大于本簿已有成功记录，允许间隔。Player 集成时由协调器按共享事实流生成，不使用请求 ID 充当事实 ID。
+- 独立 Book.execute_interaction 要求新的 event_id 为正且大于本簿已有成功记录，允许间隔。Player 集成时由协调器按共享事实流生成，不使用请求 ID 充当事实 ID。
 - 成功记录默认最多 256、可配置 1..4096；不淘汰，满后拒绝新请求，旧重放仍可用。Player 还受任务事件历史容量限制。
-- query 顺序为非法点、历史 once 完成、当前点存在/启用、模式兼容、交互历史容量。execute 复用同一组规则，但实际任务投递仍可能失败，瞬时提示不预执行目标处理器。
+- check_interaction_availability 顺序为非法点、历史 once 完成、当前点存在/启用、模式兼容、交互历史容量。execute_interaction 复用同一组规则，但实际任务投递仍可能失败，瞬时提示不预执行目标处理器。
 - restore 不依赖当前目录；检查请求唯一、版本/类型/模式合法、事件严格递增、同点模式一致、once 仅一条。全部通过再交换，错误和分配异常都保留原状态。
 
 ## 独立使用
@@ -48,14 +48,14 @@ Player 候选中推进任务 → 全部成功后一次提交
 namespace i = designer::interaction;
 i::Catalog catalog({{7, 1, true, i::Mode::once, 200}});
 i::Book book;
-auto hint = book.query(catalog, 7);
-auto result = book.execute(catalog, {100, 7}, 1); // 1 由可信序号源提供
+auto hint = book.check_interaction_availability(catalog, 7);
+auto result = book.execute_interaction(catalog, {100, 7}, 1); // 1 由可信序号源提供
 // result.receipt 描述固定效果。独立 Book 成功不代表任务已推进。
 ```
 
-Book::receipt 返回的指针在成功 execute/restore 后失效；跨操作保留数据使用返回的凭证副本或 snapshot。Player 的只读视图也会在成功状态提交后失效。
+Book::find_interaction_receipt 返回的指针在成功 execute_interaction/restore 后失效；跨操作保留数据使用返回的凭证副本或 snapshot。Player 的只读视图也会在成功状态提交后失效。
 
-Book 使用局部候选记录/索引，准备返回结果后 swap；只保证单线程内存一致性。不要先对正式 Book.execute，再对正式任务 observe，然后声称两者能一起回滚。
+Book 使用局部候选记录/索引，准备返回结果后 swap；只保证单线程内存一致性。不要先对正式 Book.execute_interaction，再对正式任务 observe_gameplay_fact，然后声称两者能一起回滚。
 
 ## Player 与配置接入
 
@@ -63,15 +63,15 @@ Book 使用局部候选记录/索引，准备返回结果后 swap；只保证单
 // Player 构造参数在既有 event_limit/purchase_limit 后追加交互目录和容量。
 // 旧调用方式默认使用空交互目录，不需要修改。
 Player player(products, quests, registry, std::move(economy), 256, 256, interactions, 256);
-auto view = player.query_interaction(7);
-auto result = player.interact({100, 7});
+auto view = player.check_interaction_availability(7);
+auto result = player.execute_interaction({100, 7});
 ```
 
-以上 Player 位于 designer::player，完整代码见 [示例](../../../examples/interaction/main.cpp)。交互请求 ID 和经济请求 ID 是独立域；交互生成的事实与外部 observe/apply 共用事件序号流。
+以上 Player 位于 designer::player，完整代码见 [示例](../../../examples/interaction/main.cpp)。交互请求 ID 和经济请求 ID 是独立域；交互生成的事实与外部 observe_gameplay_fact/apply_quest_progress_event 共用事件序号流。
 
 Player 在候选内记录交互并投递事实，任务拒绝、历史满、65 项匹配超限或 bad_alloc 都不提交交互及任务。失败不占用请求或事件 ID；历史发生有效变化后可重试。交互本身不修改资产，任务领奖仍需显式调用。
 
-query_interaction 另外检查共享序号溢出；它不保证任务日志有空间或所有目标处理器会接受输入。interact 的 fact_rejected 携带 quest_error，调用方据此决定重试。不要给同一次外部操作换新请求 ID。
+check_interaction_availability 另外检查共享序号溢出；它不保证任务日志有空间或所有目标处理器会接受输入。execute_interaction 的 fact_rejected 携带 quest_error，调用方据此决定重试。不要给同一次外部操作换新请求 ID。
 
 JSON v3 增加必填 interactions 表：
 
@@ -95,3 +95,5 @@ ctest --test-dir build -R interaction --output-on-failure
 目前每次执行复制本簿记录，Player 还复制既有候选资产/任务；成本未压测。没有数据库事务、多线程竞争裁决、引擎适配、持久化确认、防回滚或身份认证。校验和不是签名；删除交互归属记录但保留事实可能被当作合法外部事实，不能以此证明文件未被修改。历史满时无自动归档或清理方案。
 
 设计原因和实际验证见 [开发步骤 001](development/001-inspect-points.md) 与 [开发索引](development/README.md)。
+
+接口更名：query → check_interaction_availability，execute → execute_interaction，receipt → find_interaction_receipt。迁移与理由见 [步骤 002](development/002-explicit-interaction-api.md)。

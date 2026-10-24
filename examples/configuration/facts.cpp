@@ -36,23 +36,23 @@ int main(int argc, char** argv) {
             p::PlayerSnapshot snapshot; require(p::decode_archive(bytes, snapshot) == p::ArchiveError::none, "decode save");
             require(player.restore(snapshot) == q::Error::none, "restore frozen bindings");
         } else {
-            require(player.accept(1, {5, 0}) == q::Error::none && player.accept(2, {5, 0}) == q::Error::none, "accept tasks");
-            require(player.observe(gained_first).error == q::Error::none, "one fact advances both tasks");
+            require(player.accept_quest(1, {5, 0}) == q::Error::none && player.accept_quest(2, {5, 0}) == q::Error::none, "accept tasks");
+            require(player.observe_gameplay_fact(gained_first).error == q::Error::none, "one fact advances both tasks");
             require(player.snapshot().quests.events.back().updates.size() == 2, "two matched targets");
-            require(player.observe(interacted).error == q::Error::none, "fixed one input");
-            require(player.purchase({10, 100, 1, 1}).error == com::Error::none, "shared purchase");
-            require(player.claim({11, 1, 1}).error == q::Error::none, "first claim");
+            require(player.observe_gameplay_fact(interacted).error == q::Error::none, "fixed one input");
+            require(player.purchase_product({10, 100, 1, 1}).error == com::Error::none, "shared purchase");
+            require(player.claim_quest_reward({11, 1, 1}).error == q::Error::none, "first claim");
             player.replace_quests(q::QuestCatalog({})); // 已接任务的规则独立于当前目录。
-            require(player.observe(gained_again).error == q::Error::none, "frozen second task");
+            require(player.observe_gameplay_fact(gained_again).error == q::Error::none, "frozen second task");
             require(player.snapshot().quests.events.back().updates.size() == 1, "claimed task skipped");
-            require(player.claim({12, 2, 1}).error == q::Error::none, "second claim");
-            require(player.observe({4, 100, 1001, 1}).error == q::Error::none, "empty matches recorded");
+            require(player.claim_quest_reward({12, 2, 1}).error == q::Error::none, "second claim");
+            require(player.observe_gameplay_fact({4, 100, 1001, 1}).error == q::Error::none, "empty matches recorded");
         }
         std::string before, after;
         require(p::encode_archive(player.snapshot(), before) == p::ArchiveError::none, "encode before replay");
-        require(player.observe(gained_first).replayed && player.observe(interacted).replayed && player.observe(gained_again).replayed, "fact replay");
-        require(player.observe({2, 200, 7, 1}).error == q::Error::event_conflict, "same result but different raw quantity conflicts");
-        require(player.claim({11, 1, 1}).replayed && player.purchase({10, 100, 1, 1}).replayed, "asset replay");
+        require(player.observe_gameplay_fact(gained_first).replayed && player.observe_gameplay_fact(interacted).replayed && player.observe_gameplay_fact(gained_again).replayed, "fact replay");
+        require(player.observe_gameplay_fact({2, 200, 7, 1}).error == q::Error::event_conflict, "same result but different raw quantity conflicts");
+        require(player.claim_quest_reward({11, 1, 1}).replayed && player.purchase_product({10, 100, 1, 1}).replayed, "asset replay");
         require(p::encode_archive(player.snapshot(), after) == p::ArchiveError::none && before == after, "replay changes nothing");
         if (!load) require(storage::save_atomic(argv[2], after).error == storage::FileError::none, "save example");
         std::cout << (load ? "Restart restored" : "Saved") << ": frozen bindings, multi-target facts, claim boundaries and raw fact replays.\n";

@@ -18,39 +18,46 @@ namespace designer::player
         if (!state_->economy)
             throw std::invalid_argument("Player requires an economy");
     }
+
     std::unique_ptr<Player::State> Player::clone_state() const
     {
         return std::make_unique<State>(State{state_->economy->clone(), state_->purchases, state_->quests, state_->interactions});
     }
+
     const economy::Economy &Player::economy() const noexcept { return *state_->economy; }
+
     const quests::QuestBook &Player::quests() const noexcept { return state_->quests; }
-    quests::QuestView Player::query(quests::QuestId id, quests::PlayerReadContext context) const noexcept { return state_->quests.query(id, context); }
-    quests::Error Player::accept(quests::QuestId id, quests::PlayerReadContext context)
+
+    quests::QuestView Player::query_quest_status(quests::QuestId id, quests::PlayerReadContext context) const noexcept { return state_->quests.query_quest_status(id, context); }
+
+    quests::Error Player::accept_quest(quests::QuestId id, quests::PlayerReadContext context)
     {
         auto candidate = clone_state();
-        const auto result = candidate->quests.accept(id, context);
+        const auto result = candidate->quests.accept_quest(id, context);
         if (result == quests::Error::none)
             state_.swap(candidate);
         return result;
     }
-    quests::EventResult Player::apply(const quests::ProgressEvent &event)
+
+    quests::EventResult Player::apply_quest_progress_event(const quests::ProgressEvent &event)
     {
         auto candidate = clone_state();
-        const auto result = candidate->quests.apply(event);
-        if (result.error == quests::Error::none && !result.replayed)
-            state_.swap(candidate);
-        return result;
-    }
-    quests::EventResult Player::observe(const quests::GameplayFact &fact)
-    {
-        auto candidate = clone_state();
-        const auto result = candidate->quests.observe(fact);
+        const auto result = candidate->quests.apply_progress_event(event);
         if (result.error == quests::Error::none && !result.replayed)
             state_.swap(candidate);
         return result;
     }
 
-    commerce::PurchaseResult Player::purchase(const commerce::PurchaseRequest &request)
+    quests::EventResult Player::observe_gameplay_fact(const quests::GameplayFact &fact)
+    {
+        auto candidate = clone_state();
+        const auto result = candidate->quests.observe_gameplay_fact(fact);
+        if (result.error == quests::Error::none && !result.replayed)
+            state_.swap(candidate);
+        return result;
+    }
+
+    commerce::PurchaseResult Player::purchase_product(const commerce::PurchaseRequest &request)
     {
         auto prepared = state_->purchases.prepare(products_, *state_->economy, request);
         if (prepared.result.error != commerce::Error::none || prepared.result.replayed)
@@ -59,28 +66,29 @@ namespace designer::player
         state_.swap(candidate);
         return std::move(prepared.result);
     }
+
     const interaction::Book& Player::interactions() const noexcept { return state_->interactions; }
-    interaction::View Player::query_interaction(interaction::PointId point) const noexcept {
-        auto view = state_->interactions.query(interactions_, point);
+    interaction::View Player::check_interaction_availability(interaction::PointId point) const noexcept {
+        auto view = state_->interactions.check_interaction_availability(interactions_, point);
         if (view.allowed && state_->quests.event_cursor() == std::numeric_limits<quests::EventId>::max())
             return {false, interaction::Error::event_id_exhausted};
         return view;
     }
     void Player::replace_interactions(interaction::Catalog catalog) noexcept { interactions_.swap(catalog); }
-    InteractionResult Player::interact(const interaction::Request& request) {
+    InteractionResult Player::execute_interaction(const interaction::Request& request) {
         if (request.request_id == 0 || request.point == 0) return {interaction::Error::invalid_request};
-        if (const auto* prior = state_->interactions.receipt(request.request_id)) {
+        if (const auto* prior = state_->interactions.find_interaction_receipt(request.request_id)) {
             if (!(prior->request == request)) return {interaction::Error::request_conflict};
             return {interaction::Error::none, quests::Error::none, *prior, true};
         }
-        const auto view = query_interaction(request.point);
+        const auto view = check_interaction_availability(request.point);
         if (!view.allowed) return {view.reason};
-        const auto event = state_->quests.event_cursor() + 1; // query 已检查溢出；包括已知接取边界。
+        const auto event = state_->quests.event_cursor() + 1; // check_interaction_availability 已检查溢出；包括已知接取边界。
         auto candidate = clone_state();
-        const auto result = candidate->interactions.execute(interactions_, request, event);
+        const auto result = candidate->interactions.execute_interaction(interactions_, request, event);
         if (result.error != interaction::Error::none) return {result.error};
         const auto& receipt = *result.receipt;
-        const auto delivered = candidate->quests.observe({receipt.event_id, receipt.fact_type, request.point, 1});
+        const auto delivered = candidate->quests.observe_gameplay_fact({receipt.event_id, receipt.fact_type, request.point, 1});
         if (delivered.error != quests::Error::none || delivered.replayed)
             return {interaction::Error::fact_rejected, delivered.replayed ? quests::Error::event_conflict : delivered.error};
         InteractionResult output{interaction::Error::none, quests::Error::none, receipt, false};
@@ -105,7 +113,8 @@ namespace designer::player
         context.settlement = result.receipt;
         return quests::Error::none;
     }
-    quests::Error Player::prepare_claimed(ClaimPreparationContext &context)
+
+    quests::Error Player::prepare_claimed(ClaimPreparationContext &context)     // 将任务标记为已领取
     {
         auto& book = context.candidate.quests;
         auto& quest = book.quests_.at(context.request.quest);
@@ -117,15 +126,18 @@ namespace designer::player
             }
         return quests::Error::none;
     }
-    quests::Error Player::prepare_receipt(ClaimPreparationContext &context)
+
+    quests::Error Player::prepare_receipt(ClaimPreparationContext &context)     // 保存领奖凭证
     {
         context.candidate.quests.claims_.emplace(context.request.request_id, quests::ClaimReceipt{context.request, *context.settlement});
         return quests::Error::none;
     }
-    ClaimResult Player::claim(const quests::ClaimRequest &request)
+
+    ClaimResult Player::claim_quest_reward(const quests::ClaimRequest &request)
     {
         if (request.request_id == 0 || request.quest == 0 || request.destination == 0)
             return {quests::Error::invalid_request};
+
         const auto previous = state_->quests.claims_.find(request.request_id);
         if (previous != state_->quests.claims_.end())
         {
@@ -133,13 +145,15 @@ namespace designer::player
                 return {quests::Error::request_conflict};
             return {quests::Error::none, economy::Error::none, inventory::Error::none, previous->second, true};
         }
-        const auto *quest = state_->quests.accepted(request.quest);
+
+        const auto *quest = state_->quests.find_accepted_quest(request.quest);
         if (!quest)
             return {quests::Error::not_accepted};
         if (quest->claimed)
             return {quests::Error::already_claimed};
         if (!state_->quests.complete(*quest))
             return {quests::Error::not_ready};
+
         auto candidate = clone_state();
         ClaimPreparationContext context{*candidate, request};
         // Extension boundary: every stage changes ONLY this candidate. There is exactly one commit below.
@@ -155,12 +169,15 @@ namespace designer::player
         state_.swap(candidate);
         return output;
     }
+
     void Player::replace_products(commerce::ProductCatalog products) noexcept { products_.swap(products); }
     void Player::replace_quests(quests::QuestCatalog catalog) { state_->quests.replace_catalog(std::move(catalog)); }
+
     PlayerSnapshot Player::snapshot() const
     {
         return {{state_->economy->snapshot(), state_->purchases.snapshot()}, state_->quests.snapshot(), state_->interactions.snapshot()};
     }
+
     quests::Error Player::restore(const PlayerSnapshot &snapshot)
     {
         auto candidate = clone_state();

@@ -24,28 +24,28 @@ int main() {
         std::vector<eco::Container>{{1, inv::Inventory(1, inv::ItemCatalog({{10, 10}}))}});
     player_api::Player golden_player(commerce::ProductCatalog({}), q::QuestCatalog({}), q::default_objectives(), std::move(golden_economy));
     CHECK(golden_player.restore(golden_snapshot) == q::Error::none);
-    CHECK(golden_player.observe({1, 100, 10, 2}).replayed);
-    CHECK(golden_player.observe({2, 100, 10, 1}).error == q::Error::none && golden_player.query(1, {5, 2}).status == q::Status::ready);
+    CHECK(golden_player.observe_gameplay_fact({1, 100, 10, 2}).replayed);
+    CHECK(golden_player.observe_gameplay_fact({2, 100, 10, 1}).error == q::Error::none && golden_player.query_quest_status(1, {5, 2}).status == q::Status::ready);
     auto p = bound_player();
-    CHECK(p.accept(1, {5, 0}) == q::Error::none && p.accept(2, {5, 0}) == q::Error::none);
-    CHECK(p.observe({1, 100, 10, 3}).error == q::Error::none);
-    CHECK(p.observe({2, 200, 7, 10}).error == q::Error::none);
-    CHECK(p.claim({1, 1, 1}).error == q::Error::none);
-    CHECK(p.quests().accepted(1)->fact_until == 2);
-    CHECK(p.observe({3, 100, 10, 1}).error == q::Error::none);
+    CHECK(p.accept_quest(1, {5, 0}) == q::Error::none && p.accept_quest(2, {5, 0}) == q::Error::none);
+    CHECK(p.observe_gameplay_fact({1, 100, 10, 3}).error == q::Error::none);
+    CHECK(p.observe_gameplay_fact({2, 200, 7, 10}).error == q::Error::none);
+    CHECK(p.claim_quest_reward({1, 1, 1}).error == q::Error::none);
+    CHECK(p.quests().find_accepted_quest(1)->fact_until == 2);
+    CHECK(p.observe_gameplay_fact({3, 100, 10, 1}).error == q::Error::none);
     CHECK(p.snapshot().quests.events.back().updates.size() == 1 && p.snapshot().quests.events.back().updates[0].quest == 2);
-    CHECK(p.claim({2, 2, 1}).error == q::Error::none && p.quests().accepted(2)->fact_until == 3);
-    CHECK(p.observe({4, 100, 10, 100}).error == q::Error::none && p.snapshot().quests.events.back().updates.empty());
+    CHECK(p.claim_quest_reward({2, 2, 1}).error == q::Error::none && p.quests().find_accepted_quest(2)->fact_until == 3);
+    CHECK(p.observe_gameplay_fact({4, 100, 10, 100}).error == q::Error::none && p.snapshot().quests.events.back().updates.empty());
     p.replace_quests(q::QuestCatalog({}));
-    CHECK(p.observe({1, 100, 10, 3}).replayed && p.observe({2, 200, 7, 10}).replayed);
-    CHECK(p.observe({2, 200, 7, 1}).error == q::Error::event_conflict);
+    CHECK(p.observe_gameplay_fact({1, 100, 10, 3}).replayed && p.observe_gameplay_fact({2, 200, 7, 10}).replayed);
+    CHECK(p.observe_gameplay_fact({2, 200, 7, 1}).error == q::Error::event_conflict);
     const auto snapshot = p.snapshot();
     std::string bytes; CHECK(player_api::encode_archive(snapshot, bytes) == player_api::ArchiveError::none && bytes[8] == 3);
     player_api::PlayerSnapshot decoded; CHECK(player_api::decode_archive(bytes, decoded) == player_api::ArchiveError::none && equal(snapshot, decoded));
     auto restored = bound_player(); restored.replace_quests(q::QuestCatalog({}));
     CHECK(restored.restore(decoded) == q::Error::none && equal(snapshot, restored.snapshot()));
-    CHECK(restored.observe({1, 100, 10, 3}).replayed && restored.observe({4, 100, 10, 100}).replayed);
-    CHECK(restored.claim({1, 1, 1}).replayed && restored.claim({3, 1, 1}).error == q::Error::already_claimed);
+    CHECK(restored.observe_gameplay_fact({1, 100, 10, 3}).replayed && restored.observe_gameplay_fact({4, 100, 10, 100}).replayed);
+    CHECK(restored.claim_quest_reward({1, 1, 1}).replayed && restored.claim_quest_reward({3, 1, 1}).error == q::Error::already_claimed);
     const auto unchanged = restored.snapshot();
     auto reject = [&](player_api::PlayerSnapshot bad) {
         CHECK(restored.restore(bad) == q::Error::invalid_snapshot && equal(unchanged, restored.snapshot()));
@@ -87,13 +87,13 @@ int main() {
         }
     }
     // 发奖失败不能提前关掉事实匹配；后续仍能接收事实。
-    auto full = bound_player(1); CHECK(full.accept(1, {5, 0}) == q::Error::none);
-    CHECK(full.observe({1, 100, 10, 3}).error == q::Error::none && full.observe({2, 200, 7, 1}).error == q::Error::none);
-    CHECK(full.purchase({10, 100, 1, 1}).error == commerce::Error::none); // 背包占用；任务奖励与已有同物品可能合并。
+    auto full = bound_player(1); CHECK(full.accept_quest(1, {5, 0}) == q::Error::none);
+    CHECK(full.observe_gameplay_fact({1, 100, 10, 3}).error == q::Error::none && full.observe_gameplay_fact({2, 200, 7, 1}).error == q::Error::none);
+    CHECK(full.purchase_product({10, 100, 1, 1}).error == commerce::Error::none); // 背包占用；任务奖励与已有同物品可能合并。
     auto filled = full.snapshot(); filled.commerce.economy.containers[0].slots[0] = inv::ItemStack{10, 10};
     CHECK(full.restore(filled) == q::Error::none);
-    const auto prior = full.snapshot(); CHECK(full.claim({11, 1, 1}).error == q::Error::economy_failure);
-    CHECK(equal(prior, full.snapshot()) && full.quests().accepted(1)->fact_until == 0);
-    CHECK(full.observe({3, 100, 10, 1}).error == q::Error::none && full.snapshot().quests.events.back().updates.size() == 1);
+    const auto prior = full.snapshot(); CHECK(full.claim_quest_reward({11, 1, 1}).error == q::Error::economy_failure);
+    CHECK(equal(prior, full.snapshot()) && full.quests().find_accepted_quest(1)->fact_until == 0);
+    CHECK(full.observe_gameplay_fact({3, 100, 10, 1}).error == q::Error::none && full.snapshot().quests.events.back().updates.size() == 1);
     std::cout << "Fact archive and claim boundary reconstruction passed\n";
 }

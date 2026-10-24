@@ -47,22 +47,22 @@ namespace designer::player
 
         [[nodiscard]] const quests::QuestBook &quests() const noexcept;
 
-        [[nodiscard]] quests::QuestView query(quests::QuestId id, quests::PlayerReadContext context) const noexcept;
+        [[nodiscard]] quests::QuestView query_quest_status(quests::QuestId id, quests::PlayerReadContext context) const noexcept;        // 查看任务现在是什么状态
 
-        [[nodiscard]] quests::Error accept(quests::QuestId id, quests::PlayerReadContext context);
+        [[nodiscard]] quests::Error accept_quest(quests::QuestId id, quests::PlayerReadContext context);          // 正式接取一个任务
 
-        [[nodiscard]] quests::EventResult apply(const quests::ProgressEvent &event);
+        [[nodiscard]] quests::EventResult apply_quest_progress_event(const quests::ProgressEvent &event);                        // 提交事件，推进任务目标
 
-        [[nodiscard]] quests::EventResult observe(const quests::GameplayFact &fact); // 匹配冻结绑定并统一推进
+        [[nodiscard]] quests::EventResult observe_gameplay_fact(const quests::GameplayFact &fact); // 匹配冻结绑定并统一推进
 
-        [[nodiscard]] commerce::PurchaseResult purchase(const commerce::PurchaseRequest &request);
+        [[nodiscard]] commerce::PurchaseResult purchase_product(const commerce::PurchaseRequest &request); // 购买商品，统一扣款与发奖
 
-        [[nodiscard]] interaction::View query_interaction(interaction::PointId point) const noexcept;
-        [[nodiscard]] InteractionResult interact(const interaction::Request& request);
+        [[nodiscard]] interaction::View check_interaction_availability(interaction::PointId point) const noexcept;
+        [[nodiscard]] InteractionResult execute_interaction(const interaction::Request& request);
         [[nodiscard]] const interaction::Book& interactions() const noexcept;
         void replace_interactions(interaction::Catalog catalog) noexcept;
 
-        [[nodiscard]] ClaimResult claim(const quests::ClaimRequest &request);
+        [[nodiscard]] ClaimResult claim_quest_reward(const quests::ClaimRequest &request);
 
         void replace_products(commerce::ProductCatalog products) noexcept;
 
@@ -73,7 +73,7 @@ namespace designer::player
         [[nodiscard]] quests::Error restore(const PlayerSnapshot &snapshot);
 
     private:
-        struct State
+        struct State    // 玩家业务状态
         {
             std::unique_ptr<economy::Economy> economy;
             commerce::PurchaseBook purchases;
@@ -83,11 +83,11 @@ namespace designer::player
 
         struct ClaimPreparationContext
         {
-            State &candidate;
-            const quests::ClaimRequest &request;
-            std::optional<economy::Receipt> settlement = std::nullopt;
-            economy::Error economy_error = economy::Error::none;
-            inventory::Error inventory_error = inventory::Error::none;
+            State &candidate;                                               // 本次操作的候选玩家状态
+            const quests::ClaimRequest &request;                            // 本次领取哪个任务、奖励放到哪里
+            std::optional<economy::Receipt> settlement = std::nullopt;      // 发奖成功后产生的经济结算凭证
+            economy::Error economy_error = economy::Error::none;            // 发奖失败时的经济层错误
+            inventory::Error inventory_error = inventory::Error::none;      // 背包错误
         };
 
         using ClaimPreparation = quests::Error (*)(ClaimPreparationContext &);

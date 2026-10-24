@@ -103,9 +103,9 @@ int main() {
     const auto custom = replace(valid, "\"type\": 2, \"rule_version\": 1", "\"type\": 77, \"rule_version\": 7");
     const auto custom_bundle = c::decode(custom, registry); CHECK(custom_bundle.bundle);
     q::QuestBook custom_book(custom_bundle.bundle->quests(), custom_bundle.bundle->objectives());
-    CHECK(custom_book.accept(1, {5, 0}) == q::Error::none);
-    CHECK(custom_book.apply({1, {{1, 10, 3}, {1, 20, 1}}}).error == q::Error::none);
-    CHECK(custom_book.query(1, {5, 1}).status == q::Status::ready);
+    CHECK(custom_book.accept_quest(1, {5, 0}) == q::Error::none);
+    CHECK(custom_book.apply_progress_event({1, {{1, 10, 3}, {1, 20, 1}}}).error == q::Error::none);
+    CHECK(custom_book.query_quest_status(1, {5, 1}).status == q::Status::ready);
     reject(custom, c::Error::rule);
     const auto missing = c::load("configuration-file-that-does-not-exist.json", registry);
     CHECK(!missing.bundle && missing.error->code == c::Error::io);

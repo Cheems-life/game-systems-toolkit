@@ -21,3 +21,5 @@
 - [007：可信事实与冻结目标绑定](007-fact-bindings.md)
 
 - [008：向可信协调器提供已知事件边界](008-known-event-boundary.md)
+
+- [009：明确业务接口命名](009-explicit-quest-api.md)：2026-10-24，当前接口名与迁移说明。

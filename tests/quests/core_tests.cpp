@@ -41,34 +41,34 @@ int main() {
     try { q::QuestBook book(q::QuestCatalog({unknown}), registry); } catch (const std::invalid_argument&) { rejected = true; }
     CHECK(rejected);
     q::QuestBook book(q::QuestCatalog({task(), task(2)}), registry);
-    CHECK(book.query(1, {5, 0}).status == q::Status::available);
-    CHECK(book.accept(1, {4, 10}) == q::Error::condition_denied);
-    CHECK(book.accept(1, {5, 10}) == q::Error::none);
-    CHECK(book.accept(1, {5, 10}) == q::Error::already_accepted);
-    CHECK(book.accept(2, {5, 9}) == q::Error::invalid_context); // Acceptance boundaries cannot rewind either.
-    CHECK(book.query(1, {1, 10}).status == q::Status::active); // No level gate after acceptance.
+    CHECK(book.query_quest_status(1, {5, 0}).status == q::Status::available);
+    CHECK(book.accept_quest(1, {4, 10}) == q::Error::condition_denied);
+    CHECK(book.accept_quest(1, {5, 10}) == q::Error::none);
+    CHECK(book.accept_quest(1, {5, 10}) == q::Error::already_accepted);
+    CHECK(book.accept_quest(2, {5, 9}) == q::Error::invalid_context); // Acceptance boundaries cannot rewind either.
+    CHECK(book.query_quest_status(1, {1, 10}).status == q::Status::active); // No level gate after acceptance.
     const auto initial = book.snapshot();
-    CHECK(book.apply({9, {{1, 10, 1}}}).error == q::Error::event_before_accept && book.snapshot() == initial);
-    CHECK(book.apply({11, {{1, 10, 1}}}).error == q::Error::none);
-    CHECK(book.apply({11, {{1, 10, 1}}}).replayed);
+    CHECK(book.apply_progress_event({9, {{1, 10, 1}}}).error == q::Error::event_before_accept && book.snapshot() == initial);
+    CHECK(book.apply_progress_event({11, {{1, 10, 1}}}).error == q::Error::none);
+    CHECK(book.apply_progress_event({11, {{1, 10, 1}}}).replayed);
     const auto partial = book.snapshot();
-    CHECK(book.apply({11, {{1, 10, 2}}}).error == q::Error::event_conflict && book.snapshot() == partial);
-    CHECK(book.apply({10, {}}).error == q::Error::stale_event);
-    CHECK(book.apply({12, {{1, 10, 1}, {1, 20, 2}}}).error == q::Error::invalid_update && book.snapshot() == partial);
-    CHECK(book.apply({12, {{1, 10, 1}, {1, 10, 1}}}).error == q::Error::invalid_update);
-    CHECK(book.apply({12, {{1, 10, 1}, {1, 99, 1}}}).error == q::Error::unknown_objective && book.snapshot() == partial);
-    CHECK(book.apply({12, {{1, 20, 1}, {1, 10, std::numeric_limits<std::uint64_t>::max()}}}).error == q::Error::none);
-    CHECK(book.apply({12, {{1, 10, std::numeric_limits<std::uint64_t>::max()}, {1, 20, 1}}}).replayed);
-    CHECK(book.query(1, {0, 0}).status == q::Status::ready && book.accepted(1)->progress[0] == 3);
-    CHECK(book.accept(2, {5, 11}) == q::Error::invalid_context);
-    CHECK(book.accept(2, {5, 12}) == q::Error::none);
+    CHECK(book.apply_progress_event({11, {{1, 10, 2}}}).error == q::Error::event_conflict && book.snapshot() == partial);
+    CHECK(book.apply_progress_event({10, {}}).error == q::Error::stale_event);
+    CHECK(book.apply_progress_event({12, {{1, 10, 1}, {1, 20, 2}}}).error == q::Error::invalid_update && book.snapshot() == partial);
+    CHECK(book.apply_progress_event({12, {{1, 10, 1}, {1, 10, 1}}}).error == q::Error::invalid_update);
+    CHECK(book.apply_progress_event({12, {{1, 10, 1}, {1, 99, 1}}}).error == q::Error::unknown_objective && book.snapshot() == partial);
+    CHECK(book.apply_progress_event({12, {{1, 20, 1}, {1, 10, std::numeric_limits<std::uint64_t>::max()}}}).error == q::Error::none);
+    CHECK(book.apply_progress_event({12, {{1, 10, std::numeric_limits<std::uint64_t>::max()}, {1, 20, 1}}}).replayed);
+    CHECK(book.query_quest_status(1, {0, 0}).status == q::Status::ready && book.find_accepted_quest(1)->progress[0] == 3);
+    CHECK(book.accept_quest(2, {5, 11}) == q::Error::invalid_context);
+    CHECK(book.accept_quest(2, {5, 12}) == q::Error::none);
     const auto before_batch = book.snapshot();
-    CHECK(book.apply({13, {{1, 20, 1}, {2, 99, 1}}}).error == q::Error::unknown_objective && book.snapshot() == before_batch);
-    CHECK(book.apply({13, {{1, 20, 1}, {2, 10, 2}}}).error == q::Error::none);
-    CHECK(book.apply({14, {}}).error == q::Error::none); // Record an observed fact even with no matching goals.
+    CHECK(book.apply_progress_event({13, {{1, 20, 1}, {2, 99, 1}}}).error == q::Error::unknown_objective && book.snapshot() == before_batch);
+    CHECK(book.apply_progress_event({13, {{1, 20, 1}, {2, 10, 2}}}).error == q::Error::none);
+    CHECK(book.apply_progress_event({14, {}}).error == q::Error::none); // Record an observed fact even with no matching goals.
     auto changed = task(); changed.version = 2; changed.minimum_level = 99; changed.objectives[0].target = 100;
     book.replace_catalog(q::QuestCatalog({changed}));
-    CHECK(book.accepted(1)->definition.version == 1 && book.accepted(1)->definition.objectives[0].target == 3);
+    CHECK(book.find_accepted_quest(1)->definition.version == 1 && book.find_accepted_quest(1)->definition.objectives[0].target == 3);
     const auto snapshot = book.snapshot();
     q::QuestBook restored(q::QuestCatalog({}), q::default_objectives());
     CHECK(restored.restore(snapshot) == q::Error::none && restored.snapshot() == snapshot);
@@ -81,16 +81,16 @@ int main() {
     bad = snapshot; bad.quests[0].claimed = true;
     CHECK(restored.restore(bad) == q::Error::invalid_snapshot && restored.snapshot() == snapshot);
     q::QuestBook limited(q::QuestCatalog({task()}), registry, 1);
-    CHECK(limited.accept(1, {5, 0}) == q::Error::none);
-    CHECK(limited.apply({1, {{1, 10, 1}}}).error == q::Error::none);
-    CHECK(limited.apply({2, {{1, 20, 1}}}).error == q::Error::event_history_full);
-    CHECK(limited.apply({1, {{1, 10, 1}}}).replayed);
+    CHECK(limited.accept_quest(1, {5, 0}) == q::Error::none);
+    CHECK(limited.apply_progress_event({1, {{1, 10, 1}}}).error == q::Error::none);
+    CHECK(limited.apply_progress_event({2, {{1, 20, 1}}}).error == q::Error::event_history_full);
+    CHECK(limited.apply_progress_event({1, {{1, 10, 1}}}).replayed);
     registry.add(77, std::make_shared<DoubleCounter>());
     auto custom = task(); custom.objectives = {{1, 77, 7, 4}};
     q::QuestBook extended(q::QuestCatalog({custom}), registry);
-    CHECK(extended.accept(1, {5, 0}) == q::Error::none);
-    CHECK(extended.apply({1, {{1, 1, 2}}}).error == q::Error::none);
-    CHECK(extended.query(1, {1, 0}).status == q::Status::ready);
+    CHECK(extended.accept_quest(1, {5, 0}) == q::Error::none);
+    CHECK(extended.apply_progress_event({1, {{1, 1, 2}}}).error == q::Error::none);
+    CHECK(extended.query_quest_status(1, {1, 0}).status == q::Status::ready);
     CHECK(restored.restore(extended.snapshot()) == q::Error::invalid_snapshot); // Missing handler cannot silently drop a goal.
     std::cout << "Level conditions, registered handlers, frozen goals and atomic event boundaries passed\n";
 }

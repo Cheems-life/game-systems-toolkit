@@ -36,23 +36,23 @@ int main(int argc,char** argv) {
         } else {
             // 在小日志预算的玩家中演示任务投递失败：一次性交互不消耗，也不新增事实。
             auto small=create(*cfg.bundle,1);
-            require(small->accept(1,{5,0})==q::Error::none && small->accept(2,{5,0})==q::Error::none,"accept quests");
-            require(small->interact({100,8}).error==i::Error::none,"repeatable inspection");
-            const auto before=encode(*small); const auto failed=small->interact({101,7});
+            require(small->accept_quest(1,{5,0})==q::Error::none && small->accept_quest(2,{5,0})==q::Error::none,"accept quests");
+            require(small->execute_interaction({100,8}).error==i::Error::none,"repeatable inspection");
+            const auto before=encode(*small); const auto failed=small->execute_interaction({101,7});
             require(failed.error==i::Error::fact_rejected && failed.quest_error==q::Error::event_history_full,"expected task history limit");
             require(encode(*small)==before,"failed inspection must not consume point");
             // 以更大预算恢复同一状态，不丢弃原历史，然后用原请求 ID 重试。
             require(player->restore(small->snapshot())==q::Error::none,"restore with larger event budget");
-            require(player->interact({101,7}).error==i::Error::none,"retry one-time inspection");
-            require(player->interact({102,8}).error==i::Error::none,"repeatable new request");
-            require(player->claim({1,1,1}).error==q::Error::none && player->claim({2,2,1}).error==q::Error::none,"claim completed quests");
-            require(player->interact({104,9}).error==i::Error::disabled,"disabled inspection");
+            require(player->execute_interaction({101,7}).error==i::Error::none,"retry one-time inspection");
+            require(player->execute_interaction({102,8}).error==i::Error::none,"repeatable new request");
+            require(player->claim_quest_reward({1,1,1}).error==q::Error::none && player->claim_quest_reward({2,2,1}).error==q::Error::none,"claim completed quests");
+            require(player->execute_interaction({104,9}).error==i::Error::disabled,"disabled inspection");
         }
         const auto before=encode(*player);
-        require(player->interact({100,8}).replayed && player->interact({101,7}).replayed && player->interact({102,8}).replayed,"frozen result replay");
-        require(player->interact({103,7}).error==i::Error::already_completed,"changing request cannot repeat one-time point");
-        require(player->interact({100,7}).error==i::Error::request_conflict,"request payload conflict");
-        require(player->claim({1,1,1}).replayed && encode(*player)==before,"replay changes no state");
+        require(player->execute_interaction({100,8}).replayed && player->execute_interaction({101,7}).replayed && player->execute_interaction({102,8}).replayed,"frozen result replay");
+        require(player->execute_interaction({103,7}).error==i::Error::already_completed,"changing request cannot repeat one-time point");
+        require(player->execute_interaction({100,7}).error==i::Error::request_conflict,"request payload conflict");
+        require(player->claim_quest_reward({1,1,1}).replayed && encode(*player)==before,"replay changes no state");
         if(!load) require(storage::save_atomic(argv[2],before).error==storage::FileError::none,"save example");
         std::cout<<(load?"Restart restored":"Saved")<<": once/repeatable inspection, atomic quest delivery and request replay.\n";
     } catch(const std::exception& e) {std::cerr<<e.what()<<'\n'; return 1;}

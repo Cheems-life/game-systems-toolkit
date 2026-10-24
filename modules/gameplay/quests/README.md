@@ -43,7 +43,7 @@ QuestBook（玩家任务簿）
 | 事件推进 | `EventResult` | 错误、是否重放 | 告知事件是否成功，是否已经处理过。 |
 | 领奖 | `ClaimRequest` | 请求 ID、任务 ID、目标容器 | 表达“领取哪个任务，物品放哪里”。 |
 | 领奖 | `ClaimReceipt` | 领奖请求、经济结算凭证 | 成功领奖的记录，把任务身份与实际奖励关联起来。 |
-| 领奖 | `designer::player::ClaimResult` | 各层错误、可选凭证、是否重放 | `Player::claim` 的返回值；失败时可定位经济或背包原因。 |
+| 领奖 | `designer::player::ClaimResult` | 各层错误、可选凭证、是否重放 | `Player::claim_quest_reward` 的返回值；失败时可定位经济或背包原因。 |
 | 统一协调 | `Player` | 经济状态、购买记录、任务簿 | 同一个玩家只有一份资产；购买和领奖都从这里操作。 |
 | 存档 | `BookSnapshot` | 已接任务、事件历史、领奖凭证 | 任务簿的独立数据副本，不含钱包和背包。 |
 | 存档 | `designer::player::PlayerSnapshot` | 商城/经济快照、任务簿快照 | 一起保存资产、购买、任务和领奖状态，避免只恢复一半。 |
@@ -56,10 +56,10 @@ QuestBook（玩家任务簿）
 任务 100 要求 5 级接取、累计击杀 10 次，奖励 100 金币：
 
 1. 在 `QuestCatalog` 配置 `QuestDefinition`，其中包含一个计数型 `ObjectiveDefinition`。
-2. 调用 `Player::accept`，传入可信等级与事件游标，建立 `AcceptedQuest`，初始进度为零。
+2. 调用 `Player::accept_quest`，传入可信等级与事件游标，建立 `AcceptedQuest`，初始进度为零。
 3. 玩法逻辑确认击杀后，构造 `ProgressEvent`，其中 `{100, 1, 1}` 表示给任务 100 的目标 1 输入一次计数。
-4. 调用 `Player::apply` 推进进度；达到目标后，查询状态为 `ready`。
-5. 调用 `Player::claim`。奖励到账与已领奖标记一起提交；若背包满等条件导致失败，仍可领奖。
+4. 调用 `Player::apply_quest_progress_event` 推进进度；达到目标后，查询状态为 `ready`。
+5. 调用 `Player::claim_quest_reward`。奖励到账与已领奖标记一起提交；若背包满等条件导致失败，仍可领奖。
 6. 使用 `PlayerSnapshot` 保存完整玩家状态；恢复后保留进度、资产和去重记录。
 
 ## 必须记住的规则
@@ -104,7 +104,7 @@ ctest --test-dir build --output-on-failure
 
 ## 事实绑定第一版
 
-需要玩法不依赖任务 ID 时，使用 `QuestBook::observe(GameplayFact)`，共享玩家入口为 `Player::observe`：
+需要玩法不依赖任务 ID 时，使用 `QuestBook::observe_gameplay_fact(GameplayFact)`，共享玩家入口为 `Player::observe_gameplay_fact`：
 
 ```cpp
 using namespace designer::quests;
@@ -112,7 +112,7 @@ using namespace designer::quests;
 ObjectiveDefinition goal{10, counter_type, 1, 3,
     ObjectiveBinding{100, 1001, FactInput::quantity}};
 // 接取包含该目标的任务后，玩法只提交事实，不指定任务或目标。
-auto result = book.observe({101, 100, 1001, 2});
+auto result = book.observe_gameplay_fact({101, 100, 1001, 2});
 ```
 
 | 新类型 / 字段 | 用途 |
@@ -128,10 +128,12 @@ auto result = book.observe({101, 100, 1001, 2});
 
 相同 ID 同原文返回重放，不重新匹配。因此后来接取、领奖、改表、移除当前目录均不改变旧投递。即使 `one` 模式下数量 1 和数量 9 都生成输入 1，它们仍是不同原文，复用 ID 会冲突。事实与原有直接更新共用一个递增序号空间和历史容量，不能各自从 1 编号。
 
-`apply(ProgressEvent)` 保留为可信低层接口，可手动更新无绑定或有绑定目标；若附带 fact，则必须与当前冻结绑定派生的完整批次相等，不能随意声称更新来自某事实。恢复时用接取/领奖序号边界重算事实批次，再重建进度，检查遗漏和多余更新。原文、绑定和历史自身不是签名，不证明真实世界中发生过该事件。
+`apply_progress_event(ProgressEvent)` 保留为可信低层接口，可手动更新无绑定或有绑定目标；若附带 fact，则必须与当前冻结绑定派生的完整批次相等，不能随意声称更新来自某事实。恢复时用接取/领奖序号边界重算事实批次，再重建进度，检查遗漏和多余更新。原文、绑定和历史自身不是签名，不证明真实世界中发生过该事件。
 
 没有通配、表达式、脚本或内置“拾取/击杀”枚举。不检查 subject 属于物品还是交互对象；玩法端负责编号及语义，例如“获得物品”不是“当前持有数量”。自定义处理器可能在零进度即完成，此时尚无事件的领奖边界为 0。时间边界只在同一可信顺序流内成立。
 
 完整文件示例：[bindings.json](../../../examples/configuration/bindings.json)，实现与理由见 [步骤 007](development/007-fact-bindings.md)。完整玩家格式现在写 DQSTARCH v3，兼容读取 v1/v2，详见 [玩家说明](../player/README.md)。
 
 可信协调器可查询 `QuestBook::event_cursor()`：返回成功事件与已接任务接取边界的最大序号，空状态为 0。它不分配新 ID；交互事实由 Player 检查溢出后生成，见 [步骤 008](development/008-known-event-boundary.md)。
+
+任务接口名称与调用迁移见 [步骤 009](development/009-explicit-quest-api.md)，Player 层的明确目标事件入口为 apply_quest_progress_event。

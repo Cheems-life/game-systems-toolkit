@@ -22,9 +22,9 @@ template<class Create,class Operation> void sweep(Create create,Operation operat
     CHECK(done);
 }
 int main() {
-    auto create=[] {auto p=interaction_player(); CHECK(p->accept(1,{5,10})==quest::Error::none); return p;};
-    sweep(create,[](auto& p) {return p.interact({1,7}).error==interact::Error::none;});
-    auto source=create(); CHECK(source->interact({1,7}).error==interact::Error::none);
+    auto create=[] {auto p=interaction_player(); CHECK(p->accept_quest(1,{5,10})==quest::Error::none); return p;};
+    sweep(create,[](auto& p) {return p.execute_interaction({1,7}).error==interact::Error::none;});
+    auto source=create(); CHECK(source->execute_interaction({1,7}).error==interact::Error::none);
     const auto snapshot=source->snapshot();
     sweep(create,[&](auto& p) {return p.restore(snapshot)==quest::Error::none;});
     std::string encoded; CHECK(player_api::encode_archive(snapshot,encoded)==player_api::ArchiveError::none);
@@ -41,14 +41,14 @@ int main() {
     bool done=false; const auto catalog=interaction_catalog();
     for(long n=0;n<6000;++n) {
         interact::Book book; remaining=n;
-        try {const auto r=book.execute(catalog,{1,7},1); remaining=-1; CHECK(r.error==interact::Error::none); done=true;}
+        try {const auto r=book.execute_interaction(catalog,{1,7},1); remaining=-1; CHECK(r.error==interact::Error::none); done=true;}
         catch(const std::bad_alloc&) {remaining=-1; CHECK(book.snapshot().empty());}
         if(done) break;
     }
     CHECK(done);
     done=false;
     for(long n=0;n<6000;++n) {
-        interact::Book book; CHECK(book.execute(catalog,{99,8},1).error==interact::Error::none); const auto before=book.snapshot(); remaining=n;
+        interact::Book book; CHECK(book.execute_interaction(catalog,{99,8},1).error==interact::Error::none); const auto before=book.snapshot(); remaining=n;
         try {const auto e=book.restore(snapshot.interactions); remaining=-1; CHECK(e==interact::Error::none); done=true;}
         catch(const std::bad_alloc&) {remaining=-1; CHECK(book.snapshot()==before);}
         if(done) break;

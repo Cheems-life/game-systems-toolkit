@@ -41,19 +41,19 @@ int main(int argc, char** argv) {
         auto economy = std::make_unique<eco::Economy>(std::move(wallet),
             std::vector<eco::Container>{{1, inv::Inventory(16, cfg.items())}});
         designer::player::Player player(cfg.products(), cfg.quests(), cfg.objectives(), std::move(economy));
-        const auto bought = player.purchase({1, product_id, 1, 1});
+        const auto bought = player.purchase_product({1, product_id, 1, 1});
         if (bought.error != designer::commerce::Error::none)
             throw std::runtime_error(designer::commerce::error_name(bought.error));
-        if (player.accept(quest_id, {quest->minimum_level, 0}) != q::Error::none)
+        if (player.accept_quest(quest_id, {quest->minimum_level, 0}) != q::Error::none)
             throw std::runtime_error("accept failed");
         // 模拟可信接入层一次性提交完成量；实际游戏须从已验证的玩法事实产生输入。
         q::EventId event = 1;
         for (const auto& goal : quest->objectives)
-            if (player.apply({event++, {{quest_id, goal.id, goal.target}}}).error != q::Error::none)
+            if (player.apply_quest_progress_event({event++, {{quest_id, goal.id, goal.target}}}).error != q::Error::none)
                 throw std::runtime_error("progress failed");
-        const auto claimed = player.claim({2, quest_id, 1});
+        const auto claimed = player.claim_quest_reward({2, quest_id, 1});
         if (claimed.error != q::Error::none) throw std::runtime_error(q::error_name(claimed.error));
-        if (!player.purchase({1, product_id, 1, 1}).replayed || !player.claim({2, quest_id, 1}).replayed)
+        if (!player.purchase_product({1, product_id, 1, 1}).replayed || !player.claim_quest_reward({2, quest_id, 1}).replayed)
             throw std::runtime_error("replay failed");
         std::cout << "content_version=" << cfg.content_version() << ": product " << product_id
                   << " purchased, quest " << quest_id << " (" << quest->title << ") claimed; replays succeeded.\n";
