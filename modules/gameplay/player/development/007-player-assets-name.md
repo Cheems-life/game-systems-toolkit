@@ -16,3 +16,7 @@ State::economy 容易被理解为全局经济服务，而其实际作用是独�
 ## 验证
 
 本机AppleClang 17，cmake --build build --parallel成功；ctest --test-dir build --parallel 4 --output-on-failure，50/50通过；git diff --check通过。没有并发、数据库或性能变化，不声称新增相关保证。
+
+## 图示维护补充
+
+2026-10-24：按用户要求重新展示全部架构图。统一State::assets、外置商品目录和两个保留Catalog，更新任务实际业务函数名，补全独立交互/对话流程。仅文档修改，本地链接与残留名称检查通过，未重跑代码测试。

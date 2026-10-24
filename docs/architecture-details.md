@@ -1,8 +1,45 @@
 # 当前系统详细架构：成员、规则与函数交互
 
-日期：2026-10-24。依据：当前头文件、Player/Commerce/Quests 实现及 CMake。本文是代码导读，不是未来类设计；没有实现的模块不虚构成员或接口。本版随商品目录外置同步更新；实现验证见玩家步骤006。
+日期：2026-10-24。依据：当前头文件、Player/Commerce/Quests 实现及 CMake。本文是代码导读，不是未来类设计；没有实现的模块不虚构成员或接口。本版按玩家步骤006/007同步：商品目录外置、State::assets、交互/对话目录与Book、完整玩家存档v4。
 
 阅读顺序：所有权 → 模块规则表 → 跨模块函数表 → 购买/任务/领奖流程 → 配置与存档。
+
+## 零、模块依赖总图
+
+实线表示源码/构建依赖，虚线表示应用使用；独立模块不等于独立网络服务。商品配置由应用持有，在购买调用时借用。Core没有强制通往各领域的依赖。
+
+```mermaid
+flowchart TB
+    App["应用装配与业务入口"]
+    P["player：玩家协调 / assets"]
+    Q["quests：任务核心"]
+    C["commerce：购买与独立商城"]
+    IT["interaction：检查交互"]
+    D["dialogue：冻结会话"]
+    E["economy：资产与交易"]
+    I["inventory：物品容器"]
+    CFG["configuration：资产/任务/交互配置"]
+    DCFG["dialogue_configuration：对话图与语言"]
+    FS["persistence：字节文件"]
+    Core["core：版本入口"]
+    P --> Q
+    P --> C
+    P --> IT
+    P --> D
+    Q --> E
+    C --> E
+    E --> I
+    CFG --> Q
+    CFG --> C
+    CFG --> IT
+    CFG --> FS
+    DCFG --> D
+    DCFG --> FS
+    App -.-> P
+    App -.-> CFG
+    App -.-> DCFG
+    App -.-> FS
+```
 
 ## 一、所有权总览
 
@@ -18,7 +55,7 @@ classDiagram
         +accept_quest(id, context)
         +apply_quest_progress_event(event)
         +observe_gameplay_fact(fact)
-        +purchase_product(request)
+        +purchase_product(products, request)
         +claim_quest_reward(request)
         +snapshot()
         +restore(snapshot)
@@ -77,8 +114,9 @@ classDiagram
         -map claims_
         +query_quest_status(id, context)
         +accept_quest(id, context)
-        +apply_quest_progress_event(event)
+        +apply_progress_event(event)
         +observe_gameplay_fact(fact)
+        +event_cursor()
         +snapshot()
         +restore(snapshot)
     }
@@ -198,12 +236,12 @@ map 的键和值以各公开头文件为准；表中省略了命名空间前缀�
 | configuration::load | persistence::load_file | 配置字节、有界读取 | 不改玩家 |
 | configuration::decode | 各Catalog构造/find、ObjectiveHandler::validate | 建立目录、检查引用与处理器 | 仅构造局部目录 |
 | 应用层 | Bundle各getter、Player构造 | 复制目录，装配单份经济对象 | 创建新玩家 |
-| Player::query_quest_status | QuestBook::query | 状态与条件查询 | 否 |
-| Player::accept_quest/apply/observe | 候选QuestBook对应方法（apply_quest_progress_event转发apply_progress_event） | 接取、直接更新或事实路由 | 外层swap前不改正式Player |
+| Player::query_quest_status | QuestBook::query_quest_status | 状态与条件查询 | 否 |
+| Player::accept_quest / apply_quest_progress_event / observe_gameplay_fact | 候选QuestBook对应方法（apply_quest_progress_event转发apply_progress_event） | 接取、直接更新或事实路由 | 外层swap前不改正式Player |
 | Player::purchase_product / Shop::purchase | PurchaseBook::prepare | 调用方商品表、经济只读引用、购买请求 | prepare不改传入经济和购买簿 |
 | PurchaseBook::prepare | ProductCatalog::find；Economy::clone/execute | 查询价格、缩放、候选结算 | 改新经济候选 |
 | Economy::execute | 候选Wallet::debit/credit；Inventory::add | 扣成本，发货币和物品 | 改经济候选，最后本层swap |
-| QuestBook::accept_quest | query/evaluate；QuestCatalog::find | 条件检查、复制冻结定义 | 成功加入已接任务 |
+| QuestBook::accept_quest | query_quest_status/evaluate；QuestCatalog::find | 条件检查、复制冻结定义 | 成功加入已接任务 |
 | QuestBook::observe_gameplay_fact | detail::route_fact，再apply_progress_event | 原始事实→冻结目标的更新集合 | 候选进度与事件共同提交 |
 | QuestBook进度推进辅助 | ObjectiveRegistry::find；handler::update/validate | 计算并验证next | 验证后才改进度 |
 | QuestBook::complete | handler::complete | 所有目标完成判定 | 否 |
@@ -211,7 +249,7 @@ map 的键和值以各公开头文件为准；表中省略了命名空间前缀�
 | Player::prepare_rewards | 候选Economy::execute | 冻结奖励，空成本 | 改候选资产，产生经济回执 |
 | Player::prepare_claimed | 通过friend访问候选QuestBook | claimed=true，绑定任务记录fact_until | 不调用外部服务 |
 | Player::prepare_receipt | 候选QuestBook::claims_.emplace | 领奖请求+经济回执 | 不改正式任务簿 |
-| Player::restore | 候选Economy/PurchaseBook/QuestBook::restore | 各自校验再交叉核对回执 | 全部成功才替换正式Player |
+| Player::restore | 候选Economy/PurchaseBook/QuestBook/interaction::Book/dialogue::Book::restore | 各自校验再交叉核对回执 | 全部成功才替换正式Player |
 | Player::check_interaction_availability | interaction::Book::check_interaction_availability(interactions_, point) | 本地规则及事件序号空间检查 | 只读 |
 | Player::execute_interaction | 候选Book.execute_interaction，再QuestBook.observe_gameplay_fact | 交互凭证与固定任务事实共同准备 | 两者成功后才提交Player |
 | Player::execute_dialogue_command | 候选dialogue::Book.execute_dialogue_command(dialogues_, command, event) | 新命令只改变候选会话；finish联合投递冻结完成事实 | 会话与任务一起提交 |
@@ -232,7 +270,7 @@ sequenceDiagram
     participant W as Wallet候选
     participant I as Inventory候选
     App->>P: purchase_product(products, PurchaseRequest)
-    P->>B: prepare(products, economy, request)
+    P->>B: prepare(products, *state_->assets, request)
     B->>B: 检查购买历史与冲突
     Note over B: 重放返回原凭证；错误直接返回
     B->>C: find(product_id)
@@ -256,24 +294,26 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[应用：Player.accept] --> B[clone_state]
-    B --> Q[候选QuestBook.accept]
-    Q --> L[query / evaluate等级]
-    Q --> T[校验event_cursor和已知边界]
-    Q --> D[Catalog.find并复制冻结Definition]
-    D --> Z[初始零进度 / accepted_after]
-    Z --> S[成功：Player交换State]
-    F[玩法确认事实] --> O[Player.observe GameplayFact]
-    O --> CP[clone_state]
-    CP --> QB[候选QuestBook.observe]
-    QB --> H[原始事实重放与冲突检查]
-    H --> R[detail.route_fact匹配冻结binding]
-    R --> EV[ProgressEvent：原事实和updates]
-    EV --> AP[QuestBook.apply：候选事件与进度]
-    AP --> ADV[advance：接取边界 / 目标ID]
-    ADV --> REG[registry.find type]
-    REG --> U[handler.update + validate next]
-    U --> COM[任务簿提交，再由Player提交]
+    A["Player.accept_quest(id, context)"] --> B["clone_state()"]
+    B --> Q["候选 QuestBook.accept_quest"]
+    Q --> L["query_quest_status / evaluate"]
+    L --> T["检查等级、event_cursor和数量上限"]
+    T --> D["catalog_.find：复制冻结定义"]
+    D --> Z["AcceptedQuest：零进度 / accepted_after"]
+    Z --> S["成功：交换 Player.state_"]
+    F["可信玩法事实"] --> O["Player.observe_gameplay_fact(fact)"]
+    O --> CP["clone_state()"]
+    CP --> QB["候选 QuestBook.observe_gameplay_fact"]
+    QB --> H["原始事实重放 / 冲突检查"]
+    H --> R["detail::route_fact：匹配冻结 binding"]
+    R --> EV["ProgressEvent：fact + updates"]
+    EV --> AP["QuestBook.apply_progress_event"]
+    Direct["Player.apply_quest_progress_event(event)"] --> CP2["clone_state()"]
+    CP2 --> AP
+    AP --> ADV["advance：边界 / 目标定位"]
+    ADV --> REG["registry_.find(type)"]
+    REG --> U["handler.update + validate"]
+    U --> COM["事件与进度一起提交，再交换 Player.state_"]
 ```
 
 直接 `Player::apply_quest_progress_event(ProgressEvent)` 进入apply路径；不是所有事实都由玩家输入可信。直接更新和事实共用事件序号流，绑定匹配只负责任务进度，不自动把世界拾取/掉落资产与任务事实投递合并成事务。
@@ -310,8 +350,13 @@ flowchart TD
     JSON[game.json] --> LOAD[configuration.load]
     LOAD --> READ[persistence.load_file]
     READ --> DECODE[configuration.decode]
-    DECODE --> CFG[Bundle：version / items / currencies / products / quests / registry]
+    DECODE --> CFG[Bundle：version / items / currencies / products / quests / registry / interactions]
     CFG --> APP[应用创建钱包 / 容器 / Economy / Player]
+    DJSON[对话图文件 / 语言文件] --> DLOAD[load_dialogue_content / load_dialogue_texts]
+    DLOAD --> DCAT[应用校验文本引用并构造 dialogue.Catalog]
+    DCAT --> APP
+    CFG -.-> PROD[应用持有商品表：购买时借用]
+    PROD -.-> LIVE
     APP --> LIVE[运行中的Player]
     LIVE --> SNAP[Player.snapshot]
     SNAP --> PS[PlayerSnapshot]
@@ -358,27 +403,54 @@ flowchart TD
 
 本次按用户要求保留 interaction::Catalog interactions_ 与 dialogue::Catalog dialogues_。它们属于Player持有的当前内容目录，**不是每玩家进度**；进度分别保存在State.interactions和State.dialogues。这两个目录本次没有采用商品表的外置策略，未来可独立评估，图中不应画成已外置。
 
+### 交互执行
+
 ```mermaid
 sequenceDiagram
-    actor App as 可信应用与配置持有者
+    actor App as 可信应用
     participant P as Player
-    participant IB as 候选interaction.Book
-    participant DB as 候选dialogue.Book
-    participant Q as 候选QuestBook
+    participant B as 候选 interaction.Book
+    participant Q as 候选 QuestBook
     App->>P: execute_interaction(request)
-    P->>IB: execute_interaction(interactions_, request, event_cursor+1)
-    IB-->>P: 交互凭证
-    P->>Q: observe_gameplay_fact(固定交互事实)
-    P->>P: 两者成功后交换State
+    P->>P: 查旧凭证 / check_interaction_availability
+    P->>P: event = quests.event_cursor()+1；clone_state()
+    P->>B: execute_interaction(interactions_, request, event)
+    B-->>P: 固定事实类型与交互凭证
+    P->>Q: observe_gameplay_fact(event, type, point, 1)
+    Q-->>P: EventResult
+    Note over P,Q: 任一步失败丢弃候选，交互不消耗
+    P->>P: 准备结果；state_.swap(candidate)
+    P-->>App: InteractionResult
+```
+
+### 对话执行
+
+```mermaid
+sequenceDiagram
+    actor App as 可信应用与界面
+    participant P as Player
+    participant B as 候选 dialogue.Book
+    participant Q as 候选 QuestBook
     App->>P: execute_dialogue_command(command)
-    P->>DB: execute_dialogue_command(dialogues_, command, completion_event)
-    DB-->>P: 会话变更与命令凭证
+    P->>P: 校验命令 / 查询成功历史
+    P->>P: finish分配事件序号；clone_state()
+    P->>B: execute_dialogue_command(dialogues_, command, event)
+    B->>B: 校验期望节点与revision；推进冻结会话
+    B-->>P: Result与会话状态
     opt finish动作
-        P->>Q: observe_gameplay_fact(冻结完成类型, 对话ID, 1)
+        P->>B: query_dialogue_session(session)
+        P->>Q: observe_gameplay_fact(event, completion_type, dialogue_id, 1)
+        Q-->>P: EventResult
     end
-    P->>P: 成功后交换State
+    Note over P,Q: 任务失败，正式会话仍在原节点
+    P->>P: 准备结果；state_.swap(candidate)
+    P-->>App: DialogueResult
 ```
 
 完整存档现在还保存交互、对话快照，restore在候选中恢复各Book并核对完成回执与原始任务事实，防止与交互等占用同一事实序号。对话文本仍在应用资源层，不进入Player。此次产品目录外置不改变DQSTARCH v4字节结构。
 
 Player::State 中资产成员现名为 `assets`，强调它属于当前玩家；类型仍是 economy::Economy。公开 economy() 和各模块快照的 economy 字段不变，PreparedPurchase.economy 仍表示临时候选。
+
+## 图示维护（2026-10-24）
+
+本次重新核对全部8张图：模块依赖、成员持有、购买、任务推进、领奖、配置与存档、交互、对话。明确Player::State::assets与外部ProductCatalog，保留interactions_和dialogues_。修正QuestBook.apply_progress_event等实际接口名。仅修改说明，不改变代码；验证本地链接、图块数量与旧称残留，未运行代码测试或声称Mermaid渲染验证。
