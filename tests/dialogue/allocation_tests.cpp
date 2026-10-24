@@ -68,7 +68,7 @@ int main()
     const auto before = p->snapshot();
     sweep(
         [&] {
-            CHECK(p->execute_dialogue_command(step(103, d::Action::finish, 3, 3)).error == d::Error::none);
+            CHECK(p->execute_dialogue_command(catalog, step(103, d::Action::finish, 3, 3)).error == d::Error::none);
         },
         [&] { CHECK(equal(before, p->snapshot())); });
     const auto complete = p->snapshot();

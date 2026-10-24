@@ -114,3 +114,7 @@ Book、交易和状态机仍由领域模块维护。应用不直接修改claimed
 对一个不存在的路径运行全流程脚本；同一路径再次运行会先恢复已完成状态，脚本重新接任务会被正常拒绝。想重演请用新的存档路径。脚本与交互模式走相同业务代码，脚本遇错返回非零，适合验证集成。
 
 实际验证与取舍见 [开发记录](development/001-playable-application.md)。
+
+## 当前内容所有权
+
+Application通过content_持有商品和交互目录，通过dialogue_catalog_持有对话图目录，通过texts_持有正文。调用Player时分别传入const引用，Player只保存运行Book及冻结会话，不保存当前商品/交互/对话Catalog。变更见[应用步骤002](development/002-own-content-catalogs.md)。

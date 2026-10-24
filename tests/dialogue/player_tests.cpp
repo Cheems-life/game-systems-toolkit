@@ -8,27 +8,26 @@ int main()
     reach_end(*p);
     CHECK(p->snapshot().quests.events.empty() &&
           p->query_quest_status(1, {5, 10}).status != quest::Status::ready);
-    CHECK(p->execute_interaction({100, 7}).error ==
+    CHECK(p->execute_interaction(dialogue_interactions(), {100, 7}).error ==
           designer::interaction::Error::none); // 领域请求 ID 分别去重。
     const auto finish = step(103, d::Action::finish, 3, 3);
-    auto result = p->execute_dialogue_command(finish);
+    auto result = p->execute_dialogue_command(dialogue_catalog(), finish);
     CHECK(result.error == d::Error::none && result.receipt->completion_event == 12);
     CHECK(p->query_quest_status(1, {5, 12}).status == quest::Status::ready);
     const auto done = p->snapshot();
     CHECK(done.quests.events.back().fact->subject == 5001);
-    CHECK(p->execute_dialogue_command(finish).replayed && equal(done, p->snapshot()));
-    CHECK(p->execute_dialogue_command(step(103, d::Action::finish, 3, 4)).error ==
+    CHECK(p->execute_dialogue_command(dialogue_catalog(), finish).replayed && equal(done, p->snapshot()));
+    CHECK(p->execute_dialogue_command(dialogue_catalog(), step(103, d::Action::finish, 3, 4)).error ==
           d::Error::request_conflict);
     CHECK(p->purchase_product(products(), {100, 100, 1, 1}).error == commerce::Error::none);
     CHECK(p->dialogues().query_dialogue_session(100)->status ==
           d::Status::completed); // purchase 的候选也保留对话。
     CHECK(p->claim_quest_reward({101, 1, 1}).error == quest::Error::none);
     auto restored = dialogue_player();
-    restored->replace_dialogues(d::Catalog({}));
     restored->replace_quests(quest::QuestCatalog({}));
     const auto original = p->snapshot();
     CHECK(restored->restore(original) == quest::Error::none && equal(original, restored->snapshot()));
-    CHECK(restored->execute_dialogue_command(finish).replayed &&
+    CHECK(restored->execute_dialogue_command(d::Catalog({}), finish).replayed &&
           restored->claim_quest_reward({101, 1, 1}).replayed);
     auto reject = [&](player_api::PlayerSnapshot bad) {
         CHECK(restored->restore(bad) == quest::Error::invalid_snapshot &&
@@ -51,7 +50,7 @@ int main()
     // 构造语义各自合法、但交互和对话共用一条相同事实的快照，必须拒绝双重归属。
     auto duplicate = dialogue_player();
     reach_end(*duplicate);
-    CHECK(duplicate->execute_dialogue_command(finish).error == d::Error::none);
+    CHECK(duplicate->execute_dialogue_command(dialogue_catalog(), finish).error == d::Error::none);
     bad = duplicate->snapshot();
     bad.interactions.push_back({{999, 5001}, 1, designer::interaction::Mode::repeatable, 400, 1});
     CHECK(duplicate->restore(bad) == quest::Error::invalid_snapshot);
@@ -60,33 +59,50 @@ int main()
     reach_end(*small);
     CHECK(small->observe_gameplay_fact({1, 999, 99, 1}).error == quest::Error::none);
     const auto before = small->snapshot();
-    result = small->execute_dialogue_command(finish);
+    result = small->execute_dialogue_command(dialogue_catalog(), finish);
     CHECK(result.error == d::Error::fact_rejected && result.quest_error == quest::Error::event_history_full &&
           equal(before, small->snapshot()));
     auto retry = dialogue_player();
-    retry->replace_dialogues(d::Catalog({}));
     CHECK(retry->restore(before) == quest::Error::none);
-    CHECK(retry->execute_dialogue_command(finish).error == d::Error::none &&
+    CHECK(retry->execute_dialogue_command(d::Catalog({}), finish).error == d::Error::none &&
           retry->query_quest_status(1, {5, 2}).status == quest::Status::ready);
     auto overflow = dialogue_player();
     reach_end(*overflow);
     CHECK(overflow->observe_gameplay_fact({std::numeric_limits<quest::EventId>::max(), 999, 99, 1}).error ==
           quest::Error::none);
     const auto maxed = overflow->snapshot();
-    CHECK(overflow->execute_dialogue_command(finish).error == d::Error::event_id_exhausted &&
+    CHECK(overflow->execute_dialogue_command(dialogue_catalog(), finish).error == d::Error::event_id_exhausted &&
           equal(maxed, overflow->snapshot()));
-    CHECK(overflow->execute_dialogue_command(step(104, d::Action::cancel, 3, 3)).error ==
+    CHECK(overflow->execute_dialogue_command(dialogue_catalog(), step(104, d::Action::cancel, 3, 3)).error ==
           d::Error::none); // 取消无需事件序号。
     auto active = dialogue_player();
     reach_end(*active);
     auto v2 = dialogue_definition(2);
     v2.nodes[0].text_key = "new";
-    active->replace_dialogues(d::Catalog({v2}));
     auto saved = active->snapshot();
+    const d::Catalog updated_catalog({v2});
+    CHECK(active->execute_dialogue_command(updated_catalog, finish).error == d::Error::none);
+    CHECK(active->dialogues().query_dialogue_session(100)->definition.version == 1);
+    CHECK(active->execute_dialogue_command(updated_catalog, start(300)).error == d::Error::none);
+    CHECK(active->dialogues().query_dialogue_session(300)->definition.version == 2);
     auto empty = dialogue_player();
-    empty->replace_dialogues(d::Catalog({}));
     CHECK(empty->restore(saved) == quest::Error::none);
     CHECK(empty->dialogues().query_dialogue_session(100)->definition.version == 1 &&
-          empty->execute_dialogue_command(finish).error == d::Error::none);
+          empty->execute_dialogue_command(d::Catalog({}), finish).error == d::Error::none);
+    // 起始目录销毁后，无当前目录仍能推进冻结会话；新start则必须有配置。
+    auto external = dialogue_player();
+    {
+        const auto shared_catalog = dialogue_catalog();
+        CHECK(external->execute_dialogue_command(shared_catalog, start(500)).error == d::Error::none);
+        auto another = dialogue_player();
+        CHECK(another->execute_dialogue_command(shared_catalog, start(500)).error == d::Error::none);
+    }
+    const d::Catalog no_dialogues({});
+    CHECK(external->execute_dialogue_command(no_dialogues, step(501, d::Action::advance, 1, 1, 0, 500)).error == d::Error::none);
+    CHECK(external->execute_dialogue_command(no_dialogues, step(502, d::Action::choose, 2, 2, 20, 500)).error == d::Error::none);
+    CHECK(external->execute_dialogue_command(no_dialogues, step(503, d::Action::finish, 3, 3, 0, 500)).error == d::Error::none);
+    const auto external_before = external->snapshot();
+    CHECK(external->execute_dialogue_command(no_dialogues, start(504)).error == d::Error::unknown_dialogue);
+    CHECK(equal(external_before, external->snapshot()));
     std::cout << "Player dialogue completion, fact ownership and atomic failure passed\n";
 }

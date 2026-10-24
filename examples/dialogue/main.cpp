@@ -55,6 +55,7 @@ int main(int argc, char **argv)
                                    {1, designer::inventory::Inventory(16, base.bundle->items())}});
         p::Player player(base.bundle->quests(), base.bundle->objectives(),
                          std::move(assets));
+        d::Catalog catalog({});
         if (load)
         {
             player.replace_quests(q::QuestCatalog({})); // 不需要当前任务/对话配置，恢复冻结定义。
@@ -68,14 +69,14 @@ int main(int argc, char **argv)
             render(player, *language.content);
             const d::Command choose{102, d::Action::choose, 0, 100, 2, 2, 20};
             const d::Command finish{103, d::Action::finish, 0, 100, 3, 3};
-            require(player.execute_dialogue_command(choose).error == d::Error::none, "choose answer");
-            require(player.execute_dialogue_command(finish).error == d::Error::none, "finish and emit fact");
+            require(player.execute_dialogue_command(catalog, choose).error == d::Error::none, "choose answer");
+            require(player.execute_dialogue_command(catalog, finish).error == d::Error::none, "finish and emit fact");
             require(player.query_quest_status(1, {5, 1}).status == q::Status::ready,
                     "quest completed by dialogue fact");
             require(player.claim_quest_reward({1, 1, 1}).error == q::Error::none, "claim quest reward");
             const auto before = player.snapshot();
-            require(player.execute_dialogue_command(choose).replayed &&
-                        player.execute_dialogue_command(finish).replayed,
+            require(player.execute_dialogue_command(catalog, choose).replayed &&
+                        player.execute_dialogue_command(catalog, finish).replayed,
                     "replay commands");
             require(before.dialogues == player.snapshot().dialogues &&
                         before.quests == player.snapshot().quests,
@@ -88,19 +89,19 @@ int main(int argc, char **argv)
             require(graph.content != nullptr, "load selected dialogue");
             require(!cfg::validate_dialogue_text_references(graph.content->definition, *language.content),
                     "validate old text references");
-            player.replace_dialogues(d::Catalog({graph.content->definition}));
+            catalog = d::Catalog({graph.content->definition});
             require(player.accept_quest(1, {5, 0}) == q::Error::none, "accept quest");
-            require(player.execute_dialogue_command({100, d::Action::start, 5001}).error == d::Error::none,
+            require(player.execute_dialogue_command(catalog, {100, d::Action::start, 5001}).error == d::Error::none,
                     "start dialogue");
             render(player, *language.content);
             const auto update = cfg::load_dialogue_content(directory / "5001-v2.json");
             require(update.content != nullptr, "load candidate v2");
             require(!cfg::validate_dialogue_text_references(update.content->definition, *language.content),
                     "validate new text references");
-            player.replace_dialogues(d::Catalog({update.content->definition}));
+            catalog = d::Catalog({update.content->definition});
             require(player.dialogues().query_dialogue_session(100)->definition.version == 1,
                     "active flow pins old version");
-            require(player.execute_dialogue_command({101, d::Action::advance, 0, 100, 1, 1}).error ==
+            require(player.execute_dialogue_command(catalog, {101, d::Action::advance, 0, 100, 1, 1}).error ==
                         d::Error::none,
                     "advance to choice");
             render(player, *language.content);

@@ -28,6 +28,7 @@ private:
     void reset_request_cursor(const player::PlayerSnapshot& state);
     std::unique_ptr<const configuration::Bundle> content_;
     std::unique_ptr<const configuration::TextTable> texts_;
+    dialogue::Catalog dialogue_catalog_;
     std::unique_ptr<player::Player> player_;
     std::filesystem::path save_path_;
     std::uint64_t next_request_ = 1;

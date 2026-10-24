@@ -46,8 +46,7 @@ namespace designer::player
     public:
         Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
                std::unique_ptr<economy::Economy> assets, std::size_t event_limit = 256,
-               std::size_t purchase_limit = 256, interaction::Catalog interactions = interaction::Catalog({}),
-               std::size_t interaction_limit = 256, dialogue::Catalog dialogues = dialogue::Catalog({}),
+               std::size_t purchase_limit = 256, std::size_t interaction_limit = 256,
                std::size_t dialogue_limit = 256);
 
         Player(const Player &) = delete;
@@ -69,14 +68,13 @@ namespace designer::player
         [[nodiscard]] commerce::PurchaseResult purchase_product(const commerce::ProductCatalog &products,
                                                                const commerce::PurchaseRequest &request); // 购买商品，统一扣款与发奖
 
-        [[nodiscard]] interaction::View check_interaction_availability(interaction::PointId point) const noexcept;
-        [[nodiscard]] InteractionResult execute_interaction(const interaction::Request& request);
+        // 当前目录由可信应用持有；调用期借用。运行Book和冻结会话仍属于玩家。
+        [[nodiscard]] interaction::View check_interaction_availability(const interaction::Catalog& catalog, interaction::PointId point) const noexcept;
+        [[nodiscard]] InteractionResult execute_interaction(const interaction::Catalog& catalog, const interaction::Request& request);
         [[nodiscard]] const interaction::Book& interactions() const noexcept;
-        void replace_interactions(interaction::Catalog catalog) noexcept;
 
         [[nodiscard]] const dialogue::Book& dialogues() const noexcept;
-        [[nodiscard]] DialogueResult execute_dialogue_command(const dialogue::Command& command);
-        void replace_dialogues(dialogue::Catalog catalog) noexcept;
+        [[nodiscard]] DialogueResult execute_dialogue_command(const dialogue::Catalog& catalog, const dialogue::Command& command);
 
         [[nodiscard]] ClaimResult claim_quest_reward(const quests::ClaimRequest &request);
 
@@ -113,8 +111,6 @@ namespace designer::player
 
         [[nodiscard]] std::unique_ptr<State> clone_state() const;
 
-        interaction::Catalog interactions_;
-        dialogue::Catalog dialogues_;
         std::unique_ptr<State> state_;
     };
 } // namespace designer::player

@@ -12,8 +12,8 @@ namespace designer::player
 {
     static_assert(std::is_nothrow_move_constructible<ClaimResult>::value, "Claim return must not allocate after commit");
     Player::Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
-                   std::unique_ptr<economy::Economy> assets, std::size_t event_limit, std::size_t purchase_limit, interaction::Catalog interactions, std::size_t interaction_limit, dialogue::Catalog dialogues, std::size_t dialogue_limit)
-        : interactions_(std::move(interactions)), dialogues_(std::move(dialogues)), state_(std::make_unique<State>(State{std::move(assets),
+                   std::unique_ptr<economy::Economy> assets, std::size_t event_limit, std::size_t purchase_limit, std::size_t interaction_limit, std::size_t dialogue_limit)
+        : state_(std::make_unique<State>(State{std::move(assets),
                                                                                commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit), dialogue::Book(dialogue_limit)}))
     {
         if (!state_->assets)
@@ -70,24 +70,23 @@ namespace designer::player
     }
 
     const interaction::Book& Player::interactions() const noexcept { return state_->interactions; }
-    interaction::View Player::check_interaction_availability(interaction::PointId point) const noexcept {
-        auto view = state_->interactions.check_interaction_availability(interactions_, point);
+    interaction::View Player::check_interaction_availability(const interaction::Catalog& catalog, interaction::PointId point) const noexcept {
+        auto view = state_->interactions.check_interaction_availability(catalog, point);
         if (view.allowed && state_->quests.event_cursor() == std::numeric_limits<quests::EventId>::max())
             return {false, interaction::Error::event_id_exhausted};
         return view;
     }
-    void Player::replace_interactions(interaction::Catalog catalog) noexcept { interactions_.swap(catalog); }
-    InteractionResult Player::execute_interaction(const interaction::Request& request) {
+    InteractionResult Player::execute_interaction(const interaction::Catalog& catalog, const interaction::Request& request) {
         if (request.request_id == 0 || request.point == 0) return {interaction::Error::invalid_request};
         if (const auto* prior = state_->interactions.find_interaction_receipt(request.request_id)) {
             if (!(prior->request == request)) return {interaction::Error::request_conflict};
             return {interaction::Error::none, quests::Error::none, *prior, true};
         }
-        const auto view = check_interaction_availability(request.point);
+        const auto view = check_interaction_availability(catalog, request.point);
         if (!view.allowed) return {view.reason};
         const auto event = state_->quests.event_cursor() + 1; // check_interaction_availability 已检查溢出；包括已知接取边界。
         auto candidate = clone_state();
-        const auto result = candidate->interactions.execute_interaction(interactions_, request, event);
+        const auto result = candidate->interactions.execute_interaction(catalog, request, event);
         if (result.error != interaction::Error::none) return {result.error};
         const auto& receipt = *result.receipt;
         const auto delivered = candidate->quests.observe_gameplay_fact({receipt.event_id, receipt.fact_type, request.point, 1});
@@ -100,8 +99,7 @@ namespace designer::player
     }
 
     const dialogue::Book& Player::dialogues() const noexcept { return state_->dialogues; }
-    void Player::replace_dialogues(dialogue::Catalog catalog) noexcept { dialogues_.swap(catalog); }
-    DialogueResult Player::execute_dialogue_command(const dialogue::Command& command) {
+    DialogueResult Player::execute_dialogue_command(const dialogue::Catalog& catalog, const dialogue::Command& command) {
         if (!dialogue::valid_dialogue_command(command)) return {dialogue::Error::invalid_command};
         if (const auto* prior = state_->dialogues.find_dialogue_receipt(command.request_id)) {
             if (!(prior->command == command)) return {dialogue::Error::request_conflict};
@@ -114,7 +112,7 @@ namespace designer::player
             event = state_->quests.event_cursor() + 1;
         }
         auto candidate = clone_state();
-        const auto result = candidate->dialogues.execute_dialogue_command(dialogues_, command, event);
+        const auto result = candidate->dialogues.execute_dialogue_command(catalog, command, event);
         if (result.error != dialogue::Error::none) return {result.error};
         if (event) {
             const auto view = candidate->dialogues.query_dialogue_session(result.receipt->session);

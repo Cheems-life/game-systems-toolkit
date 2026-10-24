@@ -19,3 +19,5 @@
 - [006：商品目录外置](006-external-product-catalog.md)：购买借用可信配置，保留交互/对话目录并更新架构图。
 
 - [007：明确玩家资产成员命名](007-player-assets-name.md)：State::economy改为assets，公开接口与存档格式不变。
+
+- [008：交互和对话目录外置](008-external-interaction-dialogue-catalogs.md)

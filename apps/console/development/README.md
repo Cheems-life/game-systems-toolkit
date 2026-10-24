@@ -3,3 +3,5 @@
 - [001：可交互应用层](001-playable-application.md)：场景、装配、保存与恢复、命令输入和端到端验证。
 
 这是组合各系统的应用层，不是额外的玩法领域模块。遵循 [记录约定](../../../docs/development-records.md)。
+
+- [002：应用拥有内容目录](002-own-content-catalogs.md)

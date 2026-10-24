@@ -1,6 +1,6 @@
 # 当前系统详细架构：成员、规则与函数交互
 
-日期：2026-10-24。依据：当前头文件、Player/Commerce/Quests 实现及 CMake。本文是代码导读，不是未来类设计；没有实现的模块不虚构成员或接口。本版按玩家步骤006/007同步：商品目录外置、State::assets、交互/对话目录与Book、完整玩家存档v4。
+日期：2026-10-24。依据：当前头文件、Player/Commerce/Quests 实现及 CMake。本文是代码导读，不是未来类设计；没有实现的模块不虚构成员或接口。本版按玩家步骤006/007/008同步：商品目录外置、State::assets、交互/对话目录与Book、完整玩家存档v4。
 
 阅读顺序：所有权 → 模块规则表 → 跨模块函数表 → 购买/任务/领奖流程 → 配置与存档。
 
@@ -47,15 +47,30 @@ flowchart TB
 
 ```mermaid
 classDiagram
+    class Application {
+        -unique_ptr~Bundle~ content_
+        -dialogue.Catalog dialogue_catalog_
+        -unique_ptr~TextTable~ texts_
+        -unique_ptr~Player~ player_
+    }
+    class Bundle {
+        -ProductCatalog products_
+        -InteractionCatalog interactions_
+    }
+    Application *-- Bundle : content_
+    Bundle *-- ProductCatalog : products_
+    Bundle *-- InteractionCatalog : interactions_
+    Application *-- DialogueCatalog : dialogue_catalog_
+    Application *-- Player : player_
     class Player {
-        -interaction.Catalog interactions_
-        -dialogue.Catalog dialogues_
         -unique_ptr~PlayerState~ state_
         +query_quest_status(id, context)
         +accept_quest(id, context)
         +apply_quest_progress_event(event)
         +observe_gameplay_fact(fact)
         +purchase_product(products, request)
+        +execute_interaction(catalog, request)
+        +execute_dialogue_command(catalog, command)
         +claim_quest_reward(request)
         +snapshot()
         +restore(snapshot)
@@ -150,8 +165,8 @@ classDiagram
         +find(id)
     }
     Player *-- PlayerState : State
-    Player *-- InteractionCatalog : interactions_
-    Player *-- DialogueCatalog : dialogues_
+    Player ..> InteractionCatalog : 调用期只读借用
+    Player ..> DialogueCatalog : 调用期只读借用
     PlayerState *-- InteractionBook : interactions
     PlayerState *-- DialogueBook : dialogues
     class InteractionCatalog {
@@ -218,7 +233,7 @@ classDiagram
 | quests / QuestCatalog | definitions_: map<QuestId, QuestDefinition> | 配置有效且标准化，目标ID唯一、奖励无重复 | find/entries/swap |
 | quests / ObjectiveRegistry | handlers_: map<TypeId, shared_ptr<const ObjectiveHandler>> | 类型唯一，处理器非空且确定无副作用 | add/find；default_objectives装配默认处理器 |
 | quests / QuestBook | catalog_/registry_/event_limit_/quests_/events_/claims_ | 冻结定义；接取/领奖边界；事件顺序去重；单调进度；领奖记录一致 | query_quest_status/accept_quest/apply_progress_event/observe_gameplay_fact/accepted/event_cursor/replace_catalog/snapshot/restore |
-| player / Player | interactions_、dialogues_；state_ → assets/purchases/quests/interactions/dialogues | 同一玩家唯一资产；发奖/领取标记/凭证统一提交 | query_quest_status/accept_quest/apply_quest_progress_event/observe_gameplay_fact/purchase_product/claim_quest_reward/execute_interaction/execute_dialogue_command/replace_quests/snapshot/restore |
+| player / Player | state_ → assets/purchases/quests/interactions/dialogues | 同一玩家唯一资产；发奖/领取标记/凭证统一提交 | query_quest_status/accept_quest/apply_quest_progress_event/observe_gameplay_fact/purchase_product/claim_quest_reward/execute_interaction/execute_dialogue_command/replace_quests/snapshot/restore |
 | configuration / Bundle | version_/items_/currencies_/products_/quests_/registry_/interactions_ | 完整校验后只读交付，不返回半包 | load/decode + Bundle只读查询；不自动修改Player |
 | persistence | 无常驻领域对象；调用期间临时文件句柄和字节 | 有界读取；失败不污染输出；同目录原子替换及提交状态区分 | load_file/save_atomic |
 | interaction / Catalog、Book | Catalog.definitions_；Book.records_/modes_/last_event_/history_limit_ | 一次性/可重复交互、请求重放、配置模式一致、成功事实序号 | check_interaction_availability/execute_interaction/find_interaction_receipt/snapshot/restore |
@@ -250,9 +265,9 @@ map 的键和值以各公开头文件为准；表中省略了命名空间前缀�
 | Player::prepare_claimed | 通过friend访问候选QuestBook | claimed=true，绑定任务记录fact_until | 不调用外部服务 |
 | Player::prepare_receipt | 候选QuestBook::claims_.emplace | 领奖请求+经济回执 | 不改正式任务簿 |
 | Player::restore | 候选Economy/PurchaseBook/QuestBook/interaction::Book/dialogue::Book::restore | 各自校验再交叉核对回执 | 全部成功才替换正式Player |
-| Player::check_interaction_availability | interaction::Book::check_interaction_availability(interactions_, point) | 本地规则及事件序号空间检查 | 只读 |
+| Player::check_interaction_availability | interaction::Book::check_interaction_availability(catalog, point) | 本地规则及事件序号空间检查 | 只读 |
 | Player::execute_interaction | 候选Book.execute_interaction，再QuestBook.observe_gameplay_fact | 交互凭证与固定任务事实共同准备 | 两者成功后才提交Player |
-| Player::execute_dialogue_command | 候选dialogue::Book.execute_dialogue_command(dialogues_, command, event) | 新命令只改变候选会话；finish联合投递冻结完成事实 | 会话与任务一起提交 |
+| Player::execute_dialogue_command | 候选dialogue::Book.execute_dialogue_command(catalog, command, event) | 新命令只改变候选会话；finish联合投递冻结完成事实 | 会话与任务一起提交 |
 | 应用层 | player::encode_archive/decode_archive | 玩家快照↔字节 | 编码与解码不自动修改Player |
 | 应用层 | persistence::save_atomic/load_file | 字节↔文件 | 不自动执行或回滚内存交易 |
 
@@ -355,6 +370,7 @@ flowchart TD
     DJSON[对话图文件 / 语言文件] --> DLOAD[load_dialogue_content / load_dialogue_texts]
     DLOAD --> DCAT[应用校验文本引用并构造 dialogue.Catalog]
     DCAT --> APP
+    DCAT -.-> LIVE
     CFG -.-> PROD[应用持有商品表：购买时借用]
     PROD -.-> LIVE
     APP --> LIVE[运行中的Player]
@@ -401,7 +417,7 @@ flowchart TD
 
 当前图已以最新交互和对话实现为基准。Player不再持有ProductCatalog，也没有replace_products；构造时不传商品表。可信应用在每次purchase_product(products, request)传入const引用，该引用不保存。ProductCatalog仍可由Bundle或应用配置服务拥有，独立Shop自己的catalog_不受影响。
 
-本次按用户要求保留 interaction::Catalog interactions_ 与 dialogue::Catalog dialogues_。它们属于Player持有的当前内容目录，**不是每玩家进度**；进度分别保存在State.interactions和State.dialogues。这两个目录本次没有采用商品表的外置策略，未来可独立评估，图中不应画成已外置。
+当前商品、交互和对话目录均由应用持有，Player仅在调用期间借用。State.interactions与State.dialogues仍为玩家自己的Book；活动会话保留冻结图，不能把冻结历史也当作当前配置删除。
 
 ### 交互执行
 
@@ -411,10 +427,10 @@ sequenceDiagram
     participant P as Player
     participant B as 候选 interaction.Book
     participant Q as 候选 QuestBook
-    App->>P: execute_interaction(request)
+    App->>P: execute_interaction(catalog, request)
     P->>P: 查旧凭证 / check_interaction_availability
     P->>P: event = quests.event_cursor()+1；clone_state()
-    P->>B: execute_interaction(interactions_, request, event)
+    P->>B: execute_interaction(catalog, request, event)
     B-->>P: 固定事实类型与交互凭证
     P->>Q: observe_gameplay_fact(event, type, point, 1)
     Q-->>P: EventResult
@@ -431,10 +447,10 @@ sequenceDiagram
     participant P as Player
     participant B as 候选 dialogue.Book
     participant Q as 候选 QuestBook
-    App->>P: execute_dialogue_command(command)
+    App->>P: execute_dialogue_command(catalog, command)
     P->>P: 校验命令 / 查询成功历史
     P->>P: finish分配事件序号；clone_state()
-    P->>B: execute_dialogue_command(dialogues_, command, event)
+    P->>B: execute_dialogue_command(catalog, command, event)
     B->>B: 校验期望节点与revision；推进冻结会话
     B-->>P: Result与会话状态
     opt finish动作
@@ -453,8 +469,12 @@ Player::State 中资产成员现名为 `assets`，强调它属于当前玩家；
 
 ## 图示维护（2026-10-24）
 
-本次重新核对全部8张图：模块依赖、成员持有、购买、任务推进、领奖、配置与存档、交互、对话。明确Player::State::assets与外部ProductCatalog，保留interactions_和dialogues_。修正QuestBook.apply_progress_event等实际接口名。仅修改说明，不改变代码；验证本地链接、图块数量与旧称残留，未运行代码测试或声称Mermaid渲染验证。
+本次重新核对全部8张图：模块依赖、成员持有、购买、任务推进、领奖、配置与存档、交互、对话。明确Player::State::assets与外部ProductCatalog，移除Player的interactions_和dialogues_，保留两个Book。修正QuestBook.apply_progress_event等实际接口名。仅修改说明，不改变代码；验证本地链接、图块数量与旧称残留，未运行代码测试或声称Mermaid渲染验证。
 
 ## 可交互应用入口（2026-10-25）
 
-[新手村应用](../apps/console/README.md)现已实际装配上述模块。Application持有只读Bundle、TextTable、Player、存档路径与本次请求游标，用户命令只调用Player业务接口。具体装配和全过程说明见应用文档。
+[新手村应用](../apps/console/README.md)现已实际装配上述模块。Application持有只读Bundle、dialogue_catalog_、TextTable、Player、存档路径与本次请求游标，用户命令只调用Player业务接口。具体装配和全过程说明见应用文档。
+
+## 当前配置归属（2026-10-25）
+
+应用通过Bundle拥有商品和交互目录，通过Application::dialogue_catalog_拥有当前对话目录；图中Player到这三个Catalog都为借用关系，Book仍为State拥有。历史维护段保留日期，当前API以玩家步骤008及公开头为准。

@@ -63,7 +63,7 @@ void help() {
 } // namespace
 
 Application::Application(const std::filesystem::path& directory, std::filesystem::path save)
-    : save_path_(std::move(save)) {
+    : dialogue_catalog_({}), save_path_(std::move(save)) {
     auto loaded = configuration::load(directory / "game.json", quests::default_objectives());
     if (loaded.error) throw std::runtime_error(diagnostic(*loaded.error));
     content_ = std::move(loaded.bundle);
@@ -74,13 +74,14 @@ Application::Application(const std::filesystem::path& directory, std::filesystem
     if (const auto error = configuration::validate_dialogue_text_references(graph.content->definition, *language.content))
         throw std::runtime_error(diagnostic(*error));
     texts_ = std::move(language.content);
+    dialogue_catalog_ = dialogue::Catalog({graph.content->definition});
     economy::Wallet wallet(content_->currencies());
     if (wallet.credit(1, 500) != economy::Error::none)
         throw std::runtime_error("启动配置无法容纳初始金币");
     auto assets = std::make_unique<economy::Economy>(std::move(wallet),
         std::vector<economy::Container>{{1, inventory::Inventory(16, content_->items())}});
     player_ = std::make_unique<player::Player>(content_->quests(), content_->objectives(), std::move(assets),
-        256, 256, content_->interactions(), 256, dialogue::Catalog({graph.content->definition}));
+        256, 256, 256);
     std::cout << "=== Designer 新手村：应用层体验 ===\n存档：" << save_path_.string() << '\n';
     // Never silently replace an unreadable/corrupted existing save with a new player.
     if (std::filesystem::exists(save_path_)) {
@@ -238,7 +239,7 @@ bool Application::dispatch(const std::vector<std::string>& w) {
         dirty_ = true; std::cout << "接取成功。\n"; show_quests();
     } else if (command == "inspect") {
         arguments(w, 2);
-        const auto result = player_->execute_interaction({request_id(), number(w[1])});
+        const auto result = player_->execute_interaction(content_->interactions(), {request_id(), number(w[1])});
         if (result.error != interaction::Error::none) {
             std::cout << "交互失败：" << interaction::error_name(result.error) << " / "
                       << quests::error_name(result.quest_error) << '\n'; return false;
@@ -269,7 +270,7 @@ bool Application::dispatch(const std::vector<std::string>& w) {
             if (command == "choose") input.option = number(w[1]);
         }
         input.request_id = request_id();
-        const auto result = player_->execute_dialogue_command(input);
+        const auto result = player_->execute_dialogue_command(dialogue_catalog_, input);
         if (result.error != dialogue::Error::none) {
             std::cout << "对话失败：" << dialogue::error_name(result.error) << " / "
                       << quests::error_name(result.quest_error) << '\n'; return false;

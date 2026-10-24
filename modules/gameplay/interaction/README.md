@@ -63,8 +63,8 @@ Book 使用局部候选记录/索引，准备返回结果后 swap；只保证单
 // Player 构造参数在既有 event_limit/purchase_limit 后追加交互目录和容量。
 // 旧调用方式默认使用空交互目录，不需要修改。
 Player player(products, quests, registry, std::move(economy), 256, 256, interactions, 256);
-auto view = player.check_interaction_availability(7);
-auto result = player.execute_interaction({100, 7});
+auto view = player.check_interaction_availability(catalog, 7);
+auto result = player.execute_interaction(catalog, {100, 7});
 ```
 
 以上 Player 位于 designer::player，完整代码见 [示例](../../../examples/interaction/main.cpp)。交互请求 ID 和经济请求 ID 是独立域；交互生成的事实与外部 observe_gameplay_fact/apply_quest_progress_event 共用事件序号流。
@@ -97,3 +97,5 @@ ctest --test-dir build -R interaction --output-on-failure
 设计原因和实际验证见 [开发步骤 001](development/001-inspect-points.md) 与 [开发索引](development/README.md)。
 
 接口更名：query → check_interaction_availability，execute → execute_interaction，receipt → find_interaction_receipt。迁移与理由见 [步骤 002](development/002-explicit-interaction-api.md)。
+
+Player现与底层Book一样借用调用方的Catalog，不保存当前交互目录。配置由应用持有，记录仍在Player::State，见[步骤003](development/003-external-player-catalog.md)。

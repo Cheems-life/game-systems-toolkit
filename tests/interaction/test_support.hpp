@@ -12,5 +12,5 @@ inline quest::QuestDefinition interaction_task(quest::QuestId id=1) {
 }
 inline std::unique_ptr<player_api::Player> interaction_player(std::size_t events=256,std::size_t history=256) {
     return std::make_unique<player_api::Player>(quest::QuestCatalog({interaction_task()}),quest::default_objectives(),
-        make_economy().clone(),events,256,interaction_catalog(),history);
+        make_economy().clone(),events,256,history);
 }

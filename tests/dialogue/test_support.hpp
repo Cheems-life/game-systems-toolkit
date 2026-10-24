@@ -14,6 +14,8 @@ inline d::Definition dialogue_definition(std::uint32_t version = 1)
              {2, d::NodeKind::choice, 7, "npc.question", 0, {{20, "answer.yes", 3}, {10, "answer.again", 1}}},
              {3, d::NodeKind::end}}};
 }
+inline d::Catalog dialogue_catalog() { return d::Catalog({dialogue_definition()}); }
+inline designer::interaction::Catalog dialogue_interactions() { return designer::interaction::Catalog({{7, 1, true, designer::interaction::Mode::repeatable, 400}}); }
 inline d::Command start(d::RequestId request = 100)
 {
     return {request, d::Action::start, 5001};
@@ -29,12 +31,12 @@ inline std::unique_ptr<player_api::Player> dialogue_player(std::size_t events = 
     auto q = task();
     q.objectives = {{10, quest::flag_type, 1, 1, quest::ObjectiveBinding{400, 5001, quest::FactInput::one}}};
     return std::make_unique<player_api::Player>(quest::QuestCatalog({q}), quest::default_objectives(), make_economy().clone(), events,
-        256, designer::interaction::Catalog({{7, 1, true, designer::interaction::Mode::repeatable, 400}}),
-        256, d::Catalog({dialogue_definition()}), history);
+        256,
+        256, history);
 }
 inline void reach_end(player_api::Player &p)
 {
-    CHECK(p.execute_dialogue_command(start()).error == d::Error::none);
-    CHECK(p.execute_dialogue_command(step(101, d::Action::advance, 1, 1)).error == d::Error::none);
-    CHECK(p.execute_dialogue_command(step(102, d::Action::choose, 2, 2, 20)).error == d::Error::none);
+    CHECK(p.execute_dialogue_command(dialogue_catalog(), start()).error == d::Error::none);
+    CHECK(p.execute_dialogue_command(dialogue_catalog(), step(101, d::Action::advance, 1, 1)).error == d::Error::none);
+    CHECK(p.execute_dialogue_command(dialogue_catalog(), step(102, d::Action::choose, 2, 2, 20)).error == d::Error::none);
 }

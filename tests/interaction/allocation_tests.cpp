@@ -22,9 +22,10 @@ template<class Create,class Operation> void sweep(Create create,Operation operat
     CHECK(done);
 }
 int main() {
+    const auto trusted_interactions = interaction_catalog();
     auto create=[] {auto p=interaction_player(); CHECK(p->accept_quest(1,{5,10})==quest::Error::none); return p;};
-    sweep(create,[](auto& p) {return p.execute_interaction({1,7}).error==interact::Error::none;});
-    auto source=create(); CHECK(source->execute_interaction({1,7}).error==interact::Error::none);
+    sweep(create,[&](auto& p) {return p.execute_interaction(trusted_interactions, {1,7}).error==interact::Error::none;});
+    auto source=create(); CHECK(source->execute_interaction(interaction_catalog(), {1,7}).error==interact::Error::none);
     const auto snapshot=source->snapshot();
     sweep(create,[&](auto& p) {return p.restore(snapshot)==quest::Error::none;});
     std::string encoded; CHECK(player_api::encode_archive(snapshot,encoded)==player_api::ArchiveError::none);

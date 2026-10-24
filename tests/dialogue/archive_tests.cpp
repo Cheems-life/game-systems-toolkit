@@ -33,7 +33,7 @@ int main()
     player_api::Player legacy(quest::QuestCatalog({}),
                               quest::default_objectives(), std::move(assets));
     CHECK(legacy.restore(outer) == quest::Error::none &&
-          legacy.execute_dialogue_command({11, d::Action::finish, 0, 10, 1, 1}).replayed);
+          legacy.execute_dialogue_command(d::Catalog({}), {11, d::Action::finish, 0, 10, 1, 1}).replayed);
     auto p = dialogue_player();
     CHECK(p->accept_quest(1, {5, 0}) == quest::Error::none);
     reach_end(*p);
@@ -45,10 +45,9 @@ int main()
     CHECK(player_api::decode_archive(bytes, decoded) == player_api::ArchiveError::none &&
           equal(decoded, saved));
     auto restored = dialogue_player();
-    restored->replace_dialogues(d::Catalog({}));
     restored->replace_quests(quest::QuestCatalog({}));
     CHECK(restored->restore(decoded) == quest::Error::none &&
-          restored->execute_dialogue_command(step(103, d::Action::finish, 3, 3)).error == d::Error::none);
+          restored->execute_dialogue_command(d::Catalog({}), step(103, d::Action::finish, 3, 3)).error == d::Error::none);
     for (std::size_t n = 0; n < bytes.size(); ++n)
     {
         CHECK(player_api::decode_archive(std::string_view(bytes).substr(0, n), decoded) !=

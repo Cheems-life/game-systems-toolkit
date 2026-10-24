@@ -142,4 +142,4 @@ configuration 虽位于 foundation 目录，实际是上层内容适配器，并
 
 ## 商品配置所有权修订
 
-Player::products_已移除，商品配置由应用持有并以purchase_product(const ProductCatalog&, request)借用；同玩家可使用不同版本目录，新购买按当前传入配置结算，旧请求仍先查历史。Player保留interactions_和dialogues_，并在State内独立保存两个Book。上图已补全交互、对话及独立资源加载，目录职责不再依据旧工作树推断。
+Player::products_已移除，商品配置由应用持有并以purchase_product(const ProductCatalog&, request)借用；同玩家可使用不同版本目录，新购买按当前传入配置结算，旧请求仍先查历史。交互与对话Catalog也已交由应用持有，Player按参数借用，State内独立保存两个Book。上图已补全交互、对话及独立资源加载，目录职责不再依据旧工作树推断。

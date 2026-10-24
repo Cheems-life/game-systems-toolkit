@@ -1,0 +1,28 @@
+# 008：交互与对话目录交给应用持有
+
+- 日期：2026-10-25；状态：已验证，普通及ASan/UBSan回归均51/51通过。
+- 导航：[本系统索引](README.md) · [应用装配](../../../../apps/console/README.md)。
+
+## 问题与目标
+
+商品目录已外置，但Player还拥有interactions_、dialogues_，混合了共享内容发布与每玩家运行状态。已有Application可以明确拥有配置，因此统一改为调用期只读借用。两个Book仍在State中，交互/对话完成与任务推进仍必须一起提交。
+
+## 模型与方案选择
+
+移除两个Catalog成员、构造参数和replace_interactions/replace_dialogues。构造只保留事件、购买、交互与对话历史上限。check_interaction_availability/execute_interaction接收const interaction::Catalog&；execute_dialogue_command接收const dialogue::Catalog&。与Player共享指针成员相比，调用期借用不隐式延长当前目录生命周期，不引入全局配置。
+
+应用持有Bundle（其中已有交互Catalog）及独立dialogue_catalog_，通过业务接口传入。会话自己持有冻结Definition的共享只读所有权，这是运行状态的历史依据，不等于Player继续持有当前Catalog。任务、物品、货币规则的现有内部所有权不在本次范围。
+
+## 实施与失败边界
+
+只改变参数来源，不改变去重检查优先级、事实序号分配、任务投递、候选提交、回执和恢复验证。新交互/新对话开始使用本次目录；已成功请求先查历史，旧会话非start命令依据冻结图，所以空目录仍可恢复重放和继续。
+
+目录必须在同步调用期间存活且不被并发修改；不存指向Catalog的引用。去掉构造中的两个目录参数属于源码迁移，调用方须更新位置；写v4/读v1至v4的字节契约不变。
+
+## 验证
+
+现有全部51项普通测试通过；更新示例和测试以显式传入外部目录，空目录重放、空目录继续冻结会话、新版目录开始新会话使用新版、分配异常与真实应用跨进程流程继续覆盖。ASan/UBSan完整回归51/51通过；所有本地文档链接与git diff --check通过；静态核对Player仅保留两个Book而无当前交互/对话Catalog成员。未验证并发、网络或数据库，无新增相关保证。
+
+## 决策演进
+
+覆盖步骤003/005中由Player拥有当前交互/对话目录的布局，以及006中暂时保留两目录的约定。历史记录保留，当前契约以本记录和README为准。

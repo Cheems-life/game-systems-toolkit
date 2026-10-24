@@ -98,3 +98,7 @@ ctest --test-dir build -R dialogue --output-on-failure
 - [开发步骤与验证](development/README.md)
 - [内容编辑/加载/更新](../../../docs/content-pipeline.md)
 - [工程质量要求](../../../docs/quality.md)
+
+## 当前目录所有权
+
+应用持有dialogue::Catalog，调用 `player.execute_dialogue_command(catalog, command)`；Player不再提供replace_dialogues。Book中的活动/历史会话继续持有冻结图，目录变化不影响它们，见[步骤002](development/002-external-player-catalog.md)。

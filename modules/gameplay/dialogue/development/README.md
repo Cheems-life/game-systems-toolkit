@@ -5,3 +5,5 @@
 [模块说明](../README.md) · [统一记录规范](../../../../docs/development-records.md)
 
 - [001：对话图、命令与冻结会话](001-dialogue-flow-and-frozen-sessions.md)：文本/选项/结束、严格重放、版本冻结、独立存档及验证。
+
+- [002：Player借用对话目录](002-external-player-catalog.md)
