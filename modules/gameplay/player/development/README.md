@@ -21,3 +21,7 @@
 - [007：明确玩家资产成员命名](007-player-assets-name.md)：State::economy改为assets，公开接口与存档格式不变。
 
 - [008：交互和对话目录外置](008-external-interaction-dialogue-catalogs.md)
+
+## 注释与格式维护（2026-10-25）
+
+核对本次学习注释和格式调整，忽略注释与空白后C++代码词法单元一致，未发现逻辑变更；清理行尾空白。VS Code构建目录索引排除设置同时保留。cmake --build build --parallel 重新构建通过，git diff --check通过；本次未新增或重跑业务测试。

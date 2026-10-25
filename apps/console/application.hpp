@@ -26,6 +26,7 @@ private:
     std::optional<dialogue::SessionId> active_session() const;
     std::uint64_t request_id();
     void reset_request_cursor(const player::PlayerSnapshot& state);
+
     std::unique_ptr<const configuration::Bundle> content_;
     std::unique_ptr<const configuration::TextTable> texts_;
     dialogue::Catalog dialogue_catalog_;

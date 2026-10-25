@@ -114,11 +114,13 @@ namespace designer::commerce
             throw std::invalid_argument("Invalid shop economy or history limit");
     }
 
-    const economy::Economy &Shop::economy() const noexcept {
+    const economy::Economy &Shop::economy() const noexcept
+    {
         return *state_->economy;
     }
 
-    void Shop::replace_catalog(ProductCatalog catalog) noexcept {
+    void Shop::replace_catalog(ProductCatalog catalog) noexcept
+    {
         catalog_.swap(catalog);
     }
 
@@ -128,21 +130,28 @@ namespace designer::commerce
             throw std::invalid_argument("Invalid purchase history limit");
     }
 
-    PreparedPurchase PurchaseBook::prepare(const ProductCatalog& catalog, const economy::Economy& economy,
-                                           const PurchaseRequest& request) const
+    PreparedPurchase PurchaseBook::prepare(const ProductCatalog &catalog, const economy::Economy &economy,
+                                           const PurchaseRequest &request) const
     {
-        if (!detail::valid_request(request)) return {{Error::invalid_request}, nullptr, nullptr};
+        if (!detail::valid_request(request))
+            return {{Error::invalid_request}, nullptr, nullptr};
         const auto previous = purchases_.find(request.request_id);
-        if (previous != purchases_.end()) {
-            if (!(previous->second.request == request)) return {{Error::request_conflict}, nullptr, nullptr};
+        if (previous != purchases_.end())
+        {
+            if (!(previous->second.request == request))
+                return {{Error::request_conflict}, nullptr, nullptr};
             return {{Error::none, economy::Error::none, inventory::Error::none, previous->second, true}, nullptr, nullptr};
         }
-        if (purchases_.size() >= history_limit_) return {{Error::history_full}, nullptr, nullptr};
-        const auto* product = catalog.find(request.product_id);
-        if (!product) return {{Error::unknown_product}, nullptr, nullptr};
-        if (!product->available) return {{Error::product_unavailable}, nullptr, nullptr};
+        if (purchases_.size() >= history_limit_)
+            return {{Error::history_full}, nullptr, nullptr};
+        const auto *product = catalog.find(request.product_id);
+        if (!product)
+            return {{Error::unknown_product}, nullptr, nullptr};
+        if (!product->available)
+            return {{Error::product_unavailable}, nullptr, nullptr};
         economy::Transaction transaction{request.request_id, request.destination, {}, {}};
-        if (!scale(*product, request.quantity, transaction)) return {{Error::quantity_overflow}, nullptr, nullptr};
+        if (!scale(*product, request.quantity, transaction))
+            return {{Error::quantity_overflow}, nullptr, nullptr};
         auto candidate_economy = economy.clone();
         auto candidate_book = std::make_unique<PurchaseBook>(*this);
         const auto result = candidate_economy->execute(transaction);
@@ -159,26 +168,29 @@ namespace designer::commerce
     std::vector<PurchaseReceipt> PurchaseBook::snapshot() const
     {
         std::vector<PurchaseReceipt> result;
-        for (const auto& entry : purchases_) result.push_back(entry.second);
-        std::sort(result.begin(), result.end(), [](const auto& a, const auto& b) {
-            return a.settlement.sequence < b.settlement.sequence;
-        });
+        for (const auto &entry : purchases_)
+            result.push_back(entry.second);
+        std::sort(result.begin(), result.end(), [](const auto &a, const auto &b)
+                  { return a.settlement.sequence < b.settlement.sequence; });
         return result;
     }
 
-    Error PurchaseBook::restore(const Snapshot& snapshot)
+    Error PurchaseBook::restore(const Snapshot &snapshot)
     {
-        if (snapshot.purchases.size() > history_limit_ || !detail::valid_links(snapshot)) return Error::invalid_snapshot;
+        if (snapshot.purchases.size() > history_limit_ || !detail::valid_links(snapshot))
+            return Error::invalid_snapshot;
         std::map<economy::RequestId, PurchaseReceipt> candidate;
-        for (const auto& receipt : snapshot.purchases) candidate.emplace(receipt.request.request_id, receipt);
+        for (const auto &receipt : snapshot.purchases)
+            candidate.emplace(receipt.request.request_id, receipt);
         purchases_.swap(candidate);
         return Error::none;
     }
 
-    PurchaseResult Shop::purchase(const PurchaseRequest& request)
+    PurchaseResult Shop::purchase(const PurchaseRequest &request)
     {
         auto prepared = state_->purchases.prepare(catalog_, *state_->economy, request);
-        if (prepared.result.error != Error::none || prepared.result.replayed) return std::move(prepared.result);
+        if (prepared.result.error != Error::none || prepared.result.replayed)
+            return std::move(prepared.result);
         auto candidate = std::make_unique<State>(State{std::move(prepared.economy), std::move(*prepared.book)});
         state_.swap(candidate);
         return std::move(prepared.result);
@@ -189,11 +201,12 @@ namespace designer::commerce
         return {state_->economy->snapshot(), state_->purchases.snapshot()};
     }
 
-    Error Shop::restore(const Snapshot& snapshot)
+    Error Shop::restore(const Snapshot &snapshot)
     {
         auto candidate = std::make_unique<State>(State{state_->economy->clone(), PurchaseBook(history_limit_)});
         if (candidate->economy->restore(snapshot.economy) != economy::Error::none ||
-            candidate->purchases.restore(snapshot) != Error::none) return Error::invalid_snapshot;
+            candidate->purchases.restore(snapshot) != Error::none)
+            return Error::invalid_snapshot;
         state_.swap(candidate);
         return Error::none;
     }

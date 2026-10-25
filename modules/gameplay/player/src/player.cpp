@@ -14,7 +14,7 @@ namespace designer::player
     Player::Player(quests::QuestCatalog quests, quests::ObjectiveRegistry registry,
                    std::unique_ptr<economy::Economy> assets, std::size_t event_limit, std::size_t purchase_limit, std::size_t interaction_limit, std::size_t dialogue_limit)
         : state_(std::make_unique<State>(State{std::move(assets),
-                                                                               commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit), dialogue::Book(dialogue_limit)}))
+                                               commerce::PurchaseBook(purchase_limit), quests::QuestBook(std::move(quests), std::move(registry), event_limit), interaction::Book(interaction_limit), dialogue::Book(dialogue_limit)}))
     {
         if (!state_->assets)
             throw std::invalid_argument("Player requires player assets");
@@ -69,26 +69,35 @@ namespace designer::player
         return std::move(prepared.result);
     }
 
-    const interaction::Book& Player::interactions() const noexcept { return state_->interactions; }
-    interaction::View Player::check_interaction_availability(const interaction::Catalog& catalog, interaction::PointId point) const noexcept {
+    const interaction::Book &Player::interactions() const noexcept { return state_->interactions; }
+
+    interaction::View Player::check_interaction_availability(const interaction::Catalog &catalog, interaction::PointId point) const noexcept
+    {
         auto view = state_->interactions.check_interaction_availability(catalog, point);
         if (view.allowed && state_->quests.event_cursor() == std::numeric_limits<quests::EventId>::max())
             return {false, interaction::Error::event_id_exhausted};
         return view;
     }
-    InteractionResult Player::execute_interaction(const interaction::Catalog& catalog, const interaction::Request& request) {
-        if (request.request_id == 0 || request.point == 0) return {interaction::Error::invalid_request};
-        if (const auto* prior = state_->interactions.find_interaction_receipt(request.request_id)) {
-            if (!(prior->request == request)) return {interaction::Error::request_conflict};
+
+    InteractionResult Player::execute_interaction(const interaction::Catalog &catalog, const interaction::Request &request)
+    {
+        if (request.request_id == 0 || request.point == 0)
+            return {interaction::Error::invalid_request};
+        if (const auto *prior = state_->interactions.find_interaction_receipt(request.request_id))
+        {
+            if (!(prior->request == request))
+                return {interaction::Error::request_conflict};
             return {interaction::Error::none, quests::Error::none, *prior, true};
         }
         const auto view = check_interaction_availability(catalog, request.point);
-        if (!view.allowed) return {view.reason};
+        if (!view.allowed)
+            return {view.reason};
         const auto event = state_->quests.event_cursor() + 1; // check_interaction_availability 已检查溢出；包括已知接取边界。
         auto candidate = clone_state();
         const auto result = candidate->interactions.execute_interaction(catalog, request, event);
-        if (result.error != interaction::Error::none) return {result.error};
-        const auto& receipt = *result.receipt;
+        if (result.error != interaction::Error::none)
+            return {result.error};
+        const auto &receipt = *result.receipt;
         const auto delivered = candidate->quests.observe_gameplay_fact({receipt.event_id, receipt.fact_type, request.point, 1});
         if (delivered.error != quests::Error::none || delivered.replayed)
             return {interaction::Error::fact_rejected, delivered.replayed ? quests::Error::event_conflict : delivered.error};
@@ -98,23 +107,30 @@ namespace designer::player
         return output;
     }
 
-    const dialogue::Book& Player::dialogues() const noexcept { return state_->dialogues; }
-    DialogueResult Player::execute_dialogue_command(const dialogue::Catalog& catalog, const dialogue::Command& command) {
-        if (!dialogue::valid_dialogue_command(command)) return {dialogue::Error::invalid_command};
-        if (const auto* prior = state_->dialogues.find_dialogue_receipt(command.request_id)) {
-            if (!(prior->command == command)) return {dialogue::Error::request_conflict};
+    const dialogue::Book &Player::dialogues() const noexcept { return state_->dialogues; }
+    DialogueResult Player::execute_dialogue_command(const dialogue::Catalog &catalog, const dialogue::Command &command)
+    {
+        if (!dialogue::valid_dialogue_command(command))
+            return {dialogue::Error::invalid_command};
+        if (const auto *prior = state_->dialogues.find_dialogue_receipt(command.request_id))
+        {
+            if (!(prior->command == command))
+                return {dialogue::Error::request_conflict};
             return {dialogue::Error::none, quests::Error::none, *prior, true};
         }
         quests::EventId event = 0;
-        if (command.action == dialogue::Action::finish) {
+        if (command.action == dialogue::Action::finish)
+        {
             if (state_->quests.event_cursor() == std::numeric_limits<quests::EventId>::max())
                 return {dialogue::Error::event_id_exhausted};
             event = state_->quests.event_cursor() + 1;
         }
         auto candidate = clone_state();
         const auto result = candidate->dialogues.execute_dialogue_command(catalog, command, event);
-        if (result.error != dialogue::Error::none) return {result.error};
-        if (event) {
+        if (result.error != dialogue::Error::none)
+            return {result.error};
+        if (event)
+        {
             const auto view = candidate->dialogues.query_dialogue_session(result.receipt->session);
             const auto delivered = candidate->quests.observe_gameplay_fact({event, view->definition.completion_fact_type, view->definition.id, 1});
             if (delivered.error != quests::Error::none || delivered.replayed)
@@ -143,20 +159,21 @@ namespace designer::player
         return quests::Error::none;
     }
 
-    quests::Error Player::prepare_claimed(ClaimPreparationContext &context)     // 将任务标记为已领取
+    quests::Error Player::prepare_claimed(ClaimPreparationContext &context) // 将任务标记为已领取
     {
-        auto& book = context.candidate.quests;
-        auto& quest = book.quests_.at(context.request.quest);
+        auto &book = context.candidate.quests;
+        auto &quest = book.quests_.at(context.request.quest);
         quest.claimed = true;
-        for (const auto& objective : quest.definition.objectives)
-            if (objective.binding) {
+        for (const auto &objective : quest.definition.objectives)
+            if (objective.binding)
+            {
                 quest.fact_until = book.events_.empty() ? 0 : book.events_.rbegin()->first;
                 break;
             }
         return quests::Error::none;
     }
 
-    quests::Error Player::prepare_receipt(ClaimPreparationContext &context)     // 保存领奖凭证
+    quests::Error Player::prepare_receipt(ClaimPreparationContext &context) // 保存领奖凭证
     {
         context.candidate.quests.claims_.emplace(context.request.request_id, quests::ClaimReceipt{context.request, *context.settlement});
         return quests::Error::none;
@@ -227,9 +244,11 @@ namespace designer::player
             if (found == receipts.end() || !(*found->second == claim.settlement) || purchases.count(claim.request.request_id))
                 return quests::Error::invalid_snapshot;
         }
-        for (const auto& receipt : snapshot.interactions) {
+        for (const auto &receipt : snapshot.interactions)
+        {
             const auto found = std::lower_bound(snapshot.quests.events.begin(), snapshot.quests.events.end(), receipt.event_id,
-                [](const auto& event, quests::EventId id) { return event.id < id; });
+                                                [](const auto &event, quests::EventId id)
+                                                { return event.id < id; });
             const quests::GameplayFact expected{receipt.event_id, receipt.fact_type, receipt.request.point, 1};
             if (found == snapshot.quests.events.end() || found->id != receipt.event_id || !found->fact || !(*found->fact == expected))
                 return quests::Error::invalid_snapshot;

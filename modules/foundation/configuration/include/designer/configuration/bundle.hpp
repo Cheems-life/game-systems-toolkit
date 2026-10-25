@@ -11,38 +11,49 @@
 #include <string>
 #include <string_view>
 
-namespace designer::configuration {
-inline constexpr std::size_t max_items = 4096;
+namespace designer::configuration
+{
+    inline constexpr std::size_t max_items = 4096;
 
-class Bundle;
-struct LoadResult {
-    std::unique_ptr<const Bundle> bundle;
-    std::optional<Diagnostic> error;
-};
-// 数据失败返回 error + 空包；分配失败等资源异常向上传播。不会修改现有业务对象。
-[[nodiscard]] LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry& registry,
-                                std::string_view source = "<memory>");
-[[nodiscard]] LoadResult load(const std::filesystem::path& path, const quests::ObjectiveRegistry& registry);
+    class Bundle;
+    struct LoadResult
+    {
+        std::unique_ptr<const Bundle> bundle;
+        std::optional<Diagnostic> error;
+    };
+    // 数据失败返回 error + 空包；分配失败等资源异常向上传播。不会修改现有业务对象。
+    [[nodiscard]] LoadResult decode(std::string_view bytes, const quests::ObjectiveRegistry &registry,
+                                    std::string_view source = "<memory>");
+    [[nodiscard]] LoadResult load(const std::filesystem::path &path, const quests::ObjectiveRegistry &registry);
 
-class Bundle {
-public:
-    [[nodiscard]] std::uint64_t content_version() const noexcept { return version_; }
-    [[nodiscard]] const inventory::ItemCatalog& items() const noexcept { return items_; }
-    [[nodiscard]] const economy::CurrencyCatalog& currencies() const noexcept { return currencies_; }
-    [[nodiscard]] const commerce::ProductCatalog& products() const noexcept { return products_; }
-    [[nodiscard]] const quests::QuestCatalog& quests() const noexcept { return quests_; }
-    [[nodiscard]] const interaction::Catalog& interactions() const noexcept { return interactions_; }
-    [[nodiscard]] const quests::ObjectiveRegistry& objectives() const noexcept { return registry_; }
-private:
-    friend LoadResult decode(std::string_view, const quests::ObjectiveRegistry&, std::string_view);
-    Bundle(std::uint64_t version, inventory::ItemCatalog items, economy::CurrencyCatalog currencies,
-           commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry, interaction::Catalog interactions);
-    std::uint64_t version_;
-    inventory::ItemCatalog items_;
-    economy::CurrencyCatalog currencies_;
-    commerce::ProductCatalog products_;
-    quests::QuestCatalog quests_;
-    quests::ObjectiveRegistry registry_;
-    interaction::Catalog interactions_;
-};
+    class Bundle
+    {
+    public:
+        [[nodiscard]] std::uint64_t content_version() const noexcept { return version_; }
+
+        [[nodiscard]] const inventory::ItemCatalog &items() const noexcept { return items_; }
+
+        [[nodiscard]] const economy::CurrencyCatalog &currencies() const noexcept { return currencies_; }
+
+        [[nodiscard]] const commerce::ProductCatalog &products() const noexcept { return products_; }
+
+        [[nodiscard]] const quests::QuestCatalog &quests() const noexcept { return quests_; }
+
+        [[nodiscard]] const interaction::Catalog &interactions() const noexcept { return interactions_; }
+
+        [[nodiscard]] const quests::ObjectiveRegistry &objectives() const noexcept { return registry_; }
+
+    private:
+        friend LoadResult decode(std::string_view, const quests::ObjectiveRegistry &, std::string_view);
+        Bundle(std::uint64_t version, inventory::ItemCatalog items, economy::CurrencyCatalog currencies,
+               commerce::ProductCatalog products, quests::QuestCatalog quests, quests::ObjectiveRegistry registry, interaction::Catalog interactions);
+
+        std::uint64_t version_;
+        inventory::ItemCatalog items_;        // 物品规则
+        economy::CurrencyCatalog currencies_; // 货币规则
+        commerce::ProductCatalog products_;   // 商品配置
+        quests::QuestCatalog quests_;         // 任务配置
+        quests::ObjectiveRegistry registry_;
+        interaction::Catalog interactions_; // 交互配置
+    };
 } // namespace designer::configuration
