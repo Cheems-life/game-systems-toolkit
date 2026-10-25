@@ -97,11 +97,11 @@ cmake --build build --target designer_game --parallel
 
 ## Git 约定
 
-仓库本地维护，以小而完整的变更提交。当前没有配置远程仓库。接入引擎后补充引擎专用忽略规则，避免忽略应提交的资源元数据。不要提交密钥、真实用户存档及构建产物。
+仓库本地维护，以小而完整的变更提交。远程仓库为 [Cheems-life/game-systems-toolkit](https://github.com/Cheems-life/game-systems-toolkit)，主分支为 `main`。接入引擎后补充引擎专用忽略规则，避免忽略应提交的资源元数据。不要提交密钥、真实用户存档及构建产物。
 
 ## 许可证
 
-许可证尚未选定，当前不授予开源分发许可；公开发布前确认代码和素材授权。
+本工程代码采用 [MIT 许可证](LICENSE)，与 GitHub 仓库初始化时选择的许可证一致。第三方依赖和素材遵循各自许可证。
 
 ## 系统开发记录
 
@@ -109,7 +109,7 @@ cmake --build build --target designer_game --parallel
 
 玩家跨系统协调位于独立 [玩家模块](modules/gameplay/player/README.md)，任务核心不再承担购买与完整玩家存档。
 
-配置驱动入口见 [配置模块](modules/foundation/configuration/README.md)：物品、货币、商品和任务可从同一个 JSON 包加载并完成跨表校验。第三方代码按 [自身许可证](third_party/nlohmann_json/LICENSE.MIT) 使用，不受上面的工程代码许可证待定说明影响。
+配置驱动入口见 [配置模块](modules/foundation/configuration/README.md)：物品、货币、商品和任务可从同一个 JSON 包加载并完成跨表校验。第三方代码按 [自身许可证](third_party/nlohmann_json/LICENSE.MIT) 使用，保留各自版权与许可声明。
 
 任务已支持配置驱动的可信事实绑定，见 [绑定样例](examples/configuration/bindings.json) 与 [任务说明](modules/gameplay/quests/README.md)。完整玩家存档当前写 v4、兼容读取 v1/v2/v3/v4；基础配置读取 v1/v2/v3。
 
