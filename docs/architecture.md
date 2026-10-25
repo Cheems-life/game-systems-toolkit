@@ -68,7 +68,7 @@ MMO 的可信端、重复请求与持久化要求从设计阶段记录；可以�
 
 [架构分析](architecture-review.md) · [成员与函数交互图](architecture-details.md)。
 
-商品目录现由可信应用持有，Player::purchase_product(products, request)只读借用，不再持有products_或提供replace_products。交互与对话目录现也由应用持有，Player调用期借用，State中的两个Book保存各自运行记录，见[玩家步骤006](../modules/gameplay/player/development/006-external-product-catalog.md)。
+商品目录现由可信应用持有，Player::purchase_product(products, request)只读借用，不再持有products_或提供replace_products。交互与对话目录现也由应用持有，Player调用期借用，State中的两个Book保存各自运行记录，见[玩家步骤008](../modules/gameplay/player/development/008-external-interaction-dialogue-catalogs.md)。
 
 ## 可运行应用层
 

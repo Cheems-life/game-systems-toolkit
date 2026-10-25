@@ -4,6 +4,14 @@
 
 阅读顺序：所有权 → 模块规则表 → 跨模块函数表 → 购买/任务/领奖流程 → 配置与存档。
 
+## 当前调整摘要（2026-10-25）
+
+- Application.content_拥有Bundle；其中products_和interactions_是共享内容规则。
+- Application.dialogue_catalog_拥有当前对话目录，texts_拥有语言表。
+- Player只直接拥有state_；State.assets/purchases/quests/interactions/dialogues保存玩家运行状态。
+- purchase_product(products, request)、check_interaction_availability(catalog, point)、execute_interaction(catalog, request)、execute_dialogue_command(catalog, command)只在调用期借用目录。
+- 会话冻结Definition仍由dialogue::Book持有，不随当前目录外置删除。QuestBook/Wallet/Inventory原有规则所有权未在这次改动中外置。
+
 ## 零、模块依赖总图
 
 实线表示源码/构建依赖，虚线表示应用使用；独立模块不等于独立网络服务。商品配置由应用持有，在购买调用时借用。Core没有强制通往各领域的依赖。
@@ -52,9 +60,22 @@ classDiagram
         -dialogue.Catalog dialogue_catalog_
         -unique_ptr~TextTable~ texts_
         -unique_ptr~Player~ player_
+        -path save_path_
+        -uint64 next_request_
+        -bool dirty_
+        -bool quit_
+        +run(input, scripted)
+        -dispatch(words)
+        -save_game()
+        -load_game()
     }
     class Bundle {
+        -uint64 version_
+        -ItemCatalog items_
+        -CurrencyCatalog currencies_
         -ProductCatalog products_
+        -QuestCatalog quests_
+        -ObjectiveRegistry registry_
         -InteractionCatalog interactions_
     }
     Application *-- Bundle : content_
@@ -62,6 +83,13 @@ classDiagram
     Bundle *-- InteractionCatalog : interactions_
     Application *-- DialogueCatalog : dialogue_catalog_
     Application *-- Player : player_
+    Application *-- TextTable : texts_
+    class TextTable {
+        +uint64 content_version
+        +string locale
+        +map texts
+        +find_text(key)
+    }
     class Player {
         -unique_ptr~PlayerState~ state_
         +query_quest_status(id, context)
@@ -69,6 +97,7 @@ classDiagram
         +apply_quest_progress_event(event)
         +observe_gameplay_fact(fact)
         +purchase_product(products, request)
+        +check_interaction_availability(catalog, point)
         +execute_interaction(catalog, request)
         +execute_dialogue_command(catalog, command)
         +claim_quest_reward(request)
